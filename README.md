@@ -1,1 +1,1 @@
-# FinnGenGAN
+# FinnGAN
