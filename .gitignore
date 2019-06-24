@@ -1,2 +1,4 @@
 .ipynb_checkpoints/
 __pycache__/
+relational-rnn-pytorch/
+relational_rnn_pytorch/
