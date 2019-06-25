@@ -1,6 +1,7 @@
 import torch
 from torch import nn
 import torch.nn.functional as F
+from torch.autograd import Variable
 import numpy as np
 
 # this class largely follows the official sonnet implementation
@@ -302,11 +303,31 @@ class RelationalMemoryGenerator(nn.Module):
         return memory
     
     # This function introduces the randomness into the generator; no need for additional random noise input?
-    def gumbel_softmax(self, output, temperature, eps = 1e-10):
-        u = torch.rand(output.shape)
-        g = -torch.log(-torch.log(u + eps) + eps)
-        result = torch.mul(output.add(g), temperature)
-        result = F.softmax(result, dim=1)
+    def sample_gumbel(self, shape, eps=1e-20):
+        U = torch.rand(shape)#.cuda()
+        return -Variable(torch.log(-torch.log(U + eps) + eps))
+
+    def gumbel_softmax_sample(self, logits, temperature):
+        y = logits + self.sample_gumbel(logits.size())
+        return F.softmax(y * temperature, dim=-1)
+
+    # https://arxiv.org/abs/1611.01144, section 2.2. Gotten from https://gist.github.com/yzh119/fd2146d2aeb329d067568a493b20172f
+    def st_gumbel_softmax(self, logits, temperature):
+        """
+        input: [*, n_class]
+        return: [*, n_class] an one-hot vector
+        """
+        y = self.gumbel_softmax_sample(logits, temperature)
+        shape = y.size()
+        _, ind = y.max(dim=-1)
+        y_hard = torch.zeros_like(y).view(-1, shape[-1])
+        y_hard.scatter_(1, ind.view(-1, 1), 1)
+        y_hard = y_hard.view(*shape)
+        next_token = ind.view(shape[0], -1)
+        return (y_hard - y).detach() + y, next_token
+    
+    def gumbel_softmax(self, output, temperature):
+        result = self.gumbel_softmax_sample(output, temperature)
         next_token = torch.argmax(result, dim=1).view(result.shape[0], -1)
         return result, next_token
 
@@ -357,8 +378,10 @@ class RelationalMemoryGenerator(nn.Module):
         output = next_memory.view(next_memory.shape[0], -1)
         
         output = self.output_to_token_decoder(output)
+        output = F.softmax(output, dim = 1)
+        output = torch.log(output)
         
-        logit, next_token = self.gumbel_softmax(output, self.temperature)
+        logit, next_token = self.st_gumbel_softmax(output, self.temperature)
         
         return logit, next_token, next_memory
 
@@ -375,7 +398,7 @@ class RelationalMemoryGenerator(nn.Module):
 
         return logit, next_memory
 
-    def forward(self, start_token, memory, sequence_length, targets, require_logits=True):
+    def forward(self, start_token, memory, sequence_length, targets=None, require_logits=True):
         # Starting each batch, we detach the hidden state from how it was previously produced.
         # If we didn't, the model would try backpropagating all the way to start of the dataset.
         memory = self.repackage_hidden(memory)
@@ -389,14 +412,15 @@ class RelationalMemoryGenerator(nn.Module):
         logits = []
         tokens = []
         token = start_token
+        batch_size = start_token.shape[0]
         
         for idx_step in range(sequence_length):
             logit, token, memory = self.forward_step(token, memory)
-            logits.append(logit)
-            tokens.append(token)
+            logits.append(logit.view(batch_size, 1, -1))
+            tokens.append(token.view(batch_size, 1, -1))
         # concat the output from list(seq_length) of [batch, vocab] to [seq * batch, vocab]
-        logits = torch.cat(logits)
-        tokens = torch.cat(tokens)
+        logits = torch.cat(logits, dim = 1)
+        tokens = torch.cat(tokens, dim = 1)
         
         if targets is not None:
             if not self.use_adaptive_softmax:

@@ -2,3 +2,4 @@
 __pycache__/
 relational-rnn-pytorch/
 relational_rnn_pytorch/
+open_jupyter.sh
