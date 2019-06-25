@@ -7,13 +7,13 @@ import numpy as np
 # https://github.com/deepmind/sonnet/blob/master/sonnet/python/modules/relational_memory.py
 
 
-class RelationalMemory(nn.Module):
+class RelationalMemoryGenerator(nn.Module):
     """
     Constructs a `RelationalMemory` object.
     Args:
       mem_slots: The total number of memory slots to use.
       head_size: The size of an attention head.
-      input_size: The size of input per step. i.e. the dimension of each input vector
+      embed_size: The size of input per step. i.e. the dimension of each input vector
       num_heads: The number of attention heads to use. Defaults to 1.
       num_blocks: Number of times to compute attention per time step. Defaults
         to 1.
@@ -35,16 +35,19 @@ class RelationalMemory(nn.Module):
       ValueError: attention_mlp_layers is < 1.
     """
 
-    def __init__(self, mem_slots, head_size, input_size, num_tokens, num_heads=1, num_blocks=1, forget_bias=1.,
+    def __init__(self, mem_slots, head_size, embed_size, num_tokens, temperature, num_heads=1, num_blocks=1, forget_bias=1.,
                  input_bias=0.,
                  gate_style='unit', attention_mlp_layers=2, key_size=None, use_adaptive_softmax=False, cutoffs=None):
-        super(RelationalMemory, self).__init__()
+        super(RelationalMemoryGenerator, self).__init__()
 
         ########## generic parameters for RMC ##########
         self.mem_slots = mem_slots
         self.head_size = head_size
         self.num_heads = num_heads
         self.mem_size = self.head_size * self.num_heads
+        
+        # Temperature parameter
+        self.temperature = temperature
 
         # a new fixed params needed for pytorch port of RMC
         # +1 is the concatenated input per time step : we do self-attention with the concatenated memory & input
@@ -87,8 +90,8 @@ class RelationalMemory(nn.Module):
         self.attended_memory_layernorm2 = nn.LayerNorm([self.mem_slots_plus_input, self.mem_size])
 
         ########## parameters for initial embedded input projection ##########
-        self.input_size = input_size
-        self.input_projector = nn.Linear(self.input_size, self.mem_size)
+        self.embed_size = embed_size
+        self.input_projector = nn.Linear(self.embed_size, self.mem_size)
 
         ########## parameters for gating ##########
         self.num_gates = 2 * self.calculate_gate_size()
@@ -101,24 +104,27 @@ class RelationalMemory(nn.Module):
         ########## parameters for token-to-embed & output-to-token logit for softmax
         self.dropout = nn.Dropout()
         self.num_tokens = num_tokens
-        self.token_to_input_encoder = nn.Embedding(self.num_tokens, self.input_size)
+        self.token_to_embed_encoder = nn.Embedding(self.num_tokens, self.embed_size)
 
         # needs 2 linear layers for tying weights for embedding layers
-        # first match the "output" of the RMC to input_size, which is the embed dim
-        self.output_to_embed_decoder = nn.Linear(self.mem_slots * self.mem_size, self.input_size)
+        # first match the "output" of the RMC to embed_size, which is the embed dim
+        self.output_to_token_decoder = nn.Linear(self.mem_slots * self.mem_size, self.num_tokens)
+        
+        
+        # Not used
         self.use_adaptive_softmax = use_adaptive_softmax
         if not self.use_adaptive_softmax:
             # then, this layer's weight can be tied to the embedding layer
-            self.embed_to_logit_decoder = nn.Linear(self.input_size, self.num_tokens)
+            self.embed_to_logit_decoder = nn.Linear(self.embed_size, self.num_tokens)
 
             # tie embedding weights of encoder & decoder
-            self.embed_to_logit_decoder.weight = self.token_to_input_encoder.weight
+            #self.embed_to_logit_decoder.weight = self.token_to_embed_encoder.weight
 
             ########## loss function
             self.criterion = nn.CrossEntropyLoss()
         else:
-            # use adaptive softmax from the self.input_size logits, instead of the tied embed weights above
-            self.criterion_adaptive = nn.AdaptiveLogSoftmaxWithLoss(self.input_size, self.num_tokens,
+            # use adaptive softmax from the self.embed_size logits, instead of the tied embed weights above
+            self.criterion_adaptive = nn.AdaptiveLogSoftmaxWithLoss(self.embed_size, self.num_tokens,
                                                                     cutoffs=cutoffs)
 
     def repackage_hidden(self, h):
@@ -301,7 +307,7 @@ class RelationalMemory(nn.Module):
         g = -torch.log(-torch.log(u + eps) + eps)
         result = torch.mul(output.add(g), temperature)
         result = F.softmax(result, dim=1)
-        next_token = torch.argmax(result, dim=1)
+        next_token = torch.argmax(result, dim=1).view(result.shape[0], -1)
         return result, next_token
 
     def forward_step(self, token, memory, treat_input_as_matrix=False):
@@ -319,39 +325,44 @@ class RelationalMemory(nn.Module):
         """
 
         # first embed the tokens into vectors
-        inputs_embed = self.dropout(self.token_to_input_encoder(token))
+        embed = self.dropout(self.token_to_embed_encoder(token))
 
         if treat_input_as_matrix:
             # keep (Batch, Seq, ...) dim (0, 1), flatten starting from dim 2
-            inputs_embed = inputs_embed.view(inputs_embed.shape[0], inputs_embed.shape[1], -1)
+            embed = embed.view(embed.shape[0], embed.shape[1], -1)
             # apply linear layer for dim 2
-            inputs_reshape = self.input_projector(inputs_embed)
+            inputs = self.input_projector(embed)
         else:
             # keep (Batch, ...) dim (0), flatten starting from dim 1
-            inputs_embed = inputs_embed.view(inputs_embed.shape[0], -1)
+            embed = embed.view(embed.shape[0], -1)
             # apply linear layer for dim 1
-            inputs_embed = self.input_projector(inputs_embed)
+            inputs = self.input_projector(embed)
             # unsqueeze the time step to dim 1
-            inputs_reshape = inputs_embed.unsqueeze(dim=1)
+            inputs = inputs.unsqueeze(dim=1)
 
-        memory_plus_input = torch.cat([memory, inputs_reshape], dim=1)
+        memory_plus_input = torch.cat([memory, inputs], dim=1)
         next_memory = self.attend_over_memory(memory_plus_input)
 
         # cut out the concatenated input vectors from the original memory slots
-        n = inputs_reshape.shape[1]
+        n = inputs.shape[1]
         next_memory = next_memory[:, :-n, :]
 
         if self.gate_style == 'unit' or self.gate_style == 'memory':
             # these gates are sigmoid-applied ones for equation 7
-            input_gate, forget_gate = self.create_gates(inputs_reshape, memory)
+            input_gate, forget_gate = self.create_gates(inputs, memory)
             # equation 7 calculation
             next_memory = input_gate * torch.tanh(next_memory)
             next_memory += forget_gate * memory
 
         output = next_memory.view(next_memory.shape[0], -1)
         
+        output = self.output_to_token_decoder(output)
         
+        logit, next_token = self.gumbel_softmax(output, self.temperature)
+        
+        return logit, next_token, next_memory
 
+        # Not used
         # decode output to logit
         output_embed = self.output_to_embed_decoder(output)
         # TODO: this dropout is not mentioned in the paper. it's to match word-language-model dropout use case
@@ -364,7 +375,7 @@ class RelationalMemory(nn.Module):
 
         return logit, next_memory
 
-    def forward(self, start_token, memory, targets, require_logits=True):
+    def forward(self, start_token, memory, sequence_length, targets, require_logits=True):
         # Starting each batch, we detach the hidden state from how it was previously produced.
         # If we didn't, the model would try backpropagating all the way to start of the dataset.
         memory = self.repackage_hidden(memory)
@@ -376,13 +387,17 @@ class RelationalMemory(nn.Module):
         # targets are flattened [seq, batch] => [seq * batch], so the dimension is correct
 
         logits = []
-        # shape[1] is seq_lenth T
-        for idx_step in range(inputs.shape[1]):
-            logit, memory = self.forward_step(inputs[:, idx_step], memory)
+        tokens = []
+        token = start_token
+        
+        for idx_step in range(sequence_length):
+            logit, token, memory = self.forward_step(token, memory)
             logits.append(logit)
+            tokens.append(token)
         # concat the output from list(seq_length) of [batch, vocab] to [seq * batch, vocab]
         logits = torch.cat(logits)
-
+        tokens = torch.cat(tokens)
+        
         if targets is not None:
             if not self.use_adaptive_softmax:
                 # calculate loss inside this forward pass for more even VRAM usage of DataParallel
@@ -396,23 +411,23 @@ class RelationalMemory(nn.Module):
         # the forward pass only returns loss, because returning logits causes uneven VRAM usage of DataParallel
         # logits are provided only for sampling stage
         if not require_logits:
-            return loss, memory
+            return tokens, loss, memory
         else:
-            return logits, loss, memory
+            return logits, tokens, loss, memory
 
 
 
 # ########## DEBUG: unit test code ##########
-# input_size = 44
+# embed_size = 44
 # seq_length = 1
 # batch_size = 32
-# model = RelationalMemory(mem_slots=10, head_size=20, input_size=input_size, num_tokens=66, num_heads=8, num_blocks=1, forget_bias=1., input_bias=0.)
+# model = RelationalMemory(mem_slots=10, head_size=20, embed_size=embed_size, num_tokens=66, num_heads=8, num_blocks=1, forget_bias=1., input_bias=0.)
 # model_memory = model.initial_state(batch_size=batch_size)
 #
 # # random input
-# random_input = torch.randn((32, seq_length, input_size))
+# random_input = torch.randn((32, seq_length, embed_size))
 # # random targets
-# random_targets = torch.randn((32, seq_length, input_size))
+# random_targets = torch.randn((32, seq_length, embed_size))
 #
 # # take a one step forward
 # logit, next_memory = model(random_input, model_memory, random_targets, treat_input_as_matrix=True)
