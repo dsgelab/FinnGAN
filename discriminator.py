@@ -22,7 +22,7 @@ class RelGANDiscriminator(nn.Module):
         
         self.output_layer = nn.Linear(self.n_total_out_channels // 4 + 1, 1)
         
-    def forward(self, x):
+    def forward(self, x, return_mean = True):
         '''
             input:
                 x (torch.FloatTensor): onehot of size [batch_size, self.sequence_length, self.vocab_size]
@@ -52,9 +52,14 @@ class RelGANDiscriminator(nn.Module):
         result = self.output_layer(hidden) # [batch_size, self.n_embeddings, 1]
         result = torch.sigmoid(result)
         
-        result = result.squeeze(dim = -1)
+        result = result.squeeze(dim = -1) # [batch_size, self.n_embeddings]
         
-        return result
+        mean_result = torch.mean(result, dim = 1) # [batch_size, 1]
+        
+        if return_mean:
+            return mean_result
+        else:
+            return result
     
     
     

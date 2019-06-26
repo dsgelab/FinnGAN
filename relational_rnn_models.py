@@ -409,15 +409,15 @@ class RelationalMemoryGenerator(nn.Module):
 
         # targets are flattened [seq, batch] => [seq * batch], so the dimension is correct
 
-        logits = []
-        tokens = []
+        logits = [F.one_hot(start_token, self.num_tokens).type(torch.FloatTensor)]
+        tokens = [start_token]
         token = start_token
         batch_size = start_token.shape[0]
         
-        for idx_step in range(sequence_length):
+        for idx_step in range(sequence_length - 1):
             logit, token, memory = self.forward_step(token, memory)
             logits.append(logit.view(batch_size, 1, -1))
-            tokens.append(token.view(batch_size, 1, -1))
+            tokens.append(token.view(batch_size, 1))
         # concat the output from list(seq_length) of [batch, vocab] to [seq * batch, vocab]
         logits = torch.cat(logits, dim = 1)
         tokens = torch.cat(tokens, dim = 1)
