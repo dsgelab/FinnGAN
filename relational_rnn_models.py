@@ -36,7 +36,7 @@ class RelationalMemoryGenerator(nn.Module):
       ValueError: attention_mlp_layers is < 1.
     """
 
-    def __init__(self, mem_slots, head_size, embed_size, num_tokens, temperature, num_heads=1, num_blocks=1, forget_bias=1.,
+    def __init__(self, mem_slots, head_size, embed_size, vocab_size, temperature, num_heads=1, num_blocks=1, forget_bias=1.,
                  input_bias=0.,
                  gate_style='unit', attention_mlp_layers=2, key_size=None, use_adaptive_softmax=False, cutoffs=None):
         super(RelationalMemoryGenerator, self).__init__()
@@ -104,19 +104,19 @@ class RelationalMemoryGenerator(nn.Module):
 
         ########## parameters for token-to-embed & output-to-token logit for softmax
         self.dropout = nn.Dropout()
-        self.num_tokens = num_tokens
-        self.token_to_embed_encoder = nn.Embedding(self.num_tokens, self.embed_size)
+        self.vocab_size = vocab_size
+        self.token_to_embed_encoder = nn.Embedding(self.vocab_size, self.embed_size)
 
         # needs 2 linear layers for tying weights for embedding layers
         # first match the "output" of the RMC to embed_size, which is the embed dim
-        self.output_to_token_decoder = nn.Linear(self.mem_slots * self.mem_size, self.num_tokens)
+        self.output_to_token_decoder = nn.Linear(self.mem_slots * self.mem_size, self.vocab_size)
         
         
         # Not used
         self.use_adaptive_softmax = use_adaptive_softmax
         if not self.use_adaptive_softmax:
             # then, this layer's weight can be tied to the embedding layer
-            self.embed_to_logit_decoder = nn.Linear(self.embed_size, self.num_tokens)
+            self.embed_to_logit_decoder = nn.Linear(self.embed_size, self.vocab_size)
 
             # tie embedding weights of encoder & decoder
             #self.embed_to_logit_decoder.weight = self.token_to_embed_encoder.weight
@@ -125,7 +125,7 @@ class RelationalMemoryGenerator(nn.Module):
             self.criterion = nn.CrossEntropyLoss()
         else:
             # use adaptive softmax from the self.embed_size logits, instead of the tied embed weights above
-            self.criterion_adaptive = nn.AdaptiveLogSoftmaxWithLoss(self.embed_size, self.num_tokens,
+            self.criterion_adaptive = nn.AdaptiveLogSoftmaxWithLoss(self.embed_size, self.vocab_size,
                                                                     cutoffs=cutoffs)
 
     def repackage_hidden(self, h):
@@ -331,7 +331,7 @@ class RelationalMemoryGenerator(nn.Module):
         next_token = torch.argmax(result, dim=1).view(result.shape[0], -1)
         return result, next_token
 
-    def forward_step(self, token, memory, treat_input_as_matrix=False):
+    def forward_step(self, token, memory, temperature, treat_input_as_matrix = False):
         """
         Forward step of the relational memory core.
         Args:
@@ -381,7 +381,7 @@ class RelationalMemoryGenerator(nn.Module):
         output = F.softmax(output, dim = 1)
         output = torch.log(output)
         
-        logit, next_token = self.st_gumbel_softmax(output, self.temperature)
+        logit, next_token = self.st_gumbel_softmax(output, temperature)
         
         return logit, next_token, next_memory
 
@@ -398,7 +398,10 @@ class RelationalMemoryGenerator(nn.Module):
 
         return logit, next_memory
 
-    def forward(self, start_token, memory, sequence_length, targets=None, require_logits=True):
+    def forward(self, start_token, memory, sequence_length, temperature = None, targets=None, require_logits=True):
+        if temperature is None:
+            temperature = self.temperature
+        
         # Starting each batch, we detach the hidden state from how it was previously produced.
         # If we didn't, the model would try backpropagating all the way to start of the dataset.
         memory = self.repackage_hidden(memory)
@@ -409,13 +412,13 @@ class RelationalMemoryGenerator(nn.Module):
 
         # targets are flattened [seq, batch] => [seq * batch], so the dimension is correct
 
-        logits = [F.one_hot(start_token, self.num_tokens).type(torch.FloatTensor)]
+        logits = [F.one_hot(start_token, self.vocab_size).type(torch.FloatTensor)]
         tokens = [start_token]
         token = start_token
         batch_size = start_token.shape[0]
         
         for idx_step in range(sequence_length - 1):
-            logit, token, memory = self.forward_step(token, memory)
+            logit, token, memory = self.forward_step(token, memory, temperature)
             logits.append(logit.view(batch_size, 1, -1))
             tokens.append(token.view(batch_size, 1))
         # concat the output from list(seq_length) of [batch, vocab] to [seq * batch, vocab]
@@ -445,7 +448,7 @@ class RelationalMemoryGenerator(nn.Module):
 # embed_size = 44
 # seq_length = 1
 # batch_size = 32
-# model = RelationalMemory(mem_slots=10, head_size=20, embed_size=embed_size, num_tokens=66, num_heads=8, num_blocks=1, forget_bias=1., input_bias=0.)
+# model = RelationalMemory(mem_slots=10, head_size=20, embed_size=embed_size, vocab_size=66, num_heads=8, num_blocks=1, forget_bias=1., input_bias=0.)
 # model_memory = model.initial_state(batch_size=batch_size)
 #
 # # random input
