@@ -4,6 +4,8 @@ import torch.nn.functional as F
 from torch.autograd import Variable
 import numpy as np
 
+cuda = torch.cuda.is_available()
+
 # this class largely follows the official sonnet implementation
 # https://github.com/deepmind/sonnet/blob/master/sonnet/python/modules/relational_memory.py
 
@@ -304,7 +306,9 @@ class RelationalMemoryGenerator(nn.Module):
     
     # This function introduces the randomness into the generator; no need for additional random noise input?
     def sample_gumbel(self, shape, eps=1e-20):
-        U = torch.rand(shape)#.cuda()
+        U = torch.rand(shape)
+        if cuda:
+            U = U.cuda()
         return -Variable(torch.log(-torch.log(U + eps) + eps))
 
     def gumbel_softmax_sample(self, logits, temperature):
@@ -412,7 +416,7 @@ class RelationalMemoryGenerator(nn.Module):
 
         # targets are flattened [seq, batch] => [seq * batch], so the dimension is correct
 
-        logits = [F.one_hot(start_token, self.vocab_size).type(torch.FloatTensor)]
+        logits = [F.one_hot(start_token, self.vocab_size).type(torch.cuda.FloatTensor if cuda else torch.FloatTensor)]
         tokens = [start_token]
         token = start_token
         batch_size = start_token.shape[0]
