@@ -4,3 +4,6 @@ relational-rnn-pytorch/
 relational_rnn_pytorch/
 open_jupyter.sh
 aclImdb/
+D_ICD_DIAGNOSES.csv.gz
+DATETIMEEVENTS.csv.gz
+DIAGNOSES_ICD.csv.gz
