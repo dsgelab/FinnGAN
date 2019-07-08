@@ -7,3 +7,4 @@ aclImdb/
 D_ICD_DIAGNOSES.csv.gz
 DATETIMEEVENTS.csv.gz
 DIAGNOSES_ICD.csv.gz
+data/
