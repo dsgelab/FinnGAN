@@ -315,12 +315,12 @@ def get_scores(G, ENDPOINT, dataset, batch_size, separate1, separate2, vocab_siz
     
     return score1, score2.mean(), score2
 
-def get_dataset():
+def get_dataset(nrows = 3_000_000):
     filename = 'data/FINNGEN_ENDPOINTS_DF3_longitudinal_V1_for_SandBox.txt.gz'
 
     endpoints = ['I9_HYPTENS', 'I9_ANGINA', 'I9_HEARTFAIL_NS', 'I9_STR_EXH', 'I9_CHD']
 
-    events = pd.read_csv(filename, compression = 'infer', sep='\t', nrows = 3_000_000)
+    events = pd.read_csv(filename, compression = 'infer', sep='\t', nrows = nrows)
 
     # include all endpoints in a list
     events = events[events['ENDPOINT'].isin(endpoints)]
