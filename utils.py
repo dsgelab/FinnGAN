@@ -1,5 +1,6 @@
 from math import log10, floor
 import numpy as np
+import pandas as pd
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -7,6 +8,10 @@ from torch.autograd import Variable
 import torchtext
 from torchtext.data import Field, Iterator, Dataset, Example
 import matplotlib.pyplot as plt
+from sklearn.model_selection import train_test_split
+import matplotlib.pyplot as plt
+from params import *
+
 
 cuda = torch.cuda.is_available()
 
@@ -310,3 +315,122 @@ def get_scores(G, ENDPOINT, dataset, batch_size, separate1, separate2, vocab_siz
     
     return score1, score2.mean(), score2
 
+def get_dataset():
+    filename = 'data/FINNGEN_ENDPOINTS_DF3_longitudinal_V1_for_SandBox.txt.gz'
+
+    endpoints = ['I9_HYPTENS', 'I9_ANGINA', 'I9_HEARTFAIL_NS', 'I9_STR_EXH', 'I9_CHD']
+
+    events = pd.read_csv(filename, compression = 'infer', sep='\t', nrows = 3_000_000)
+
+    # include all endpoints in a list
+    events = events[events['ENDPOINT'].isin(endpoints)]
+    events = events.groupby('FINNGENID').filter(lambda x: len(x) > 1)
+
+    subjects = events['FINNGENID'].unique()
+    n_individuals = len(subjects)
+
+    sequence_length = min(events.groupby('FINNGENID').apply(lambda x: len(x)).max(), max_sequence_length)
+
+    sequences_of_codes = events.groupby('FINNGENID').apply(get_sequence_of_codes, (sequence_length))
+    sequences_of_times = events.groupby('FINNGENID').apply(get_sequence_of_time_differences, (sequence_length))
+
+    sequences = pd.DataFrame({'ENDPOINTS': sequences_of_codes, 'TIME_DIFFS': sequences_of_times})
+
+
+    tokenize = lambda x: x.split(' ')
+
+    ENDPOINT = Field(fix_length = sequence_length, tokenize = tokenize)
+
+    fields = [('ENDPOINTS', ENDPOINT), ('TIME_DIFFS', None)]
+
+    train_sequences, val_sequences = train_test_split(sequences, test_size = 0.1)
+
+    train = DataFrameDataset(train_sequences, fields)
+    val = DataFrameDataset(val_sequences, fields)
+
+    ENDPOINT.build_vocab(train, val)
+
+    vocab_size = len(ENDPOINT.vocab.freqs) + 2
+    
+    return train, val, ENDPOINT, vocab_size, sequence_length, n_individuals
+
+def save_plots_of_train_scores(scores1, scores2, scores3, accuracies_real, accuracies_fake, sequence_length, vocab_size, ENDPOINT):
+    plt.plot(range(scores1.shape[0]), scores1.numpy())
+    plt.ylabel('Chi-Squared Distance of frequencies')
+    plt.xlabel('Epoch')
+    plt.savefig('figs/chisqrd_freqs.svg')
+    plt.clf()
+
+    plt.plot(range(scores2.shape[0]), scores2.numpy())
+    plt.ylabel('Mean transition score')
+    plt.xlabel('Epoch')
+    plt.savefig('figs/mean_transition_score.svg')
+    plt.clf()
+
+
+    plt.plot(range(accuracies_real.shape[0]), accuracies_real.detach().cpu().numpy())
+    plt.ylabel('Accuracy real')
+    plt.xlabel('Epoch')
+    plt.savefig('figs/accuracy_real.svg')
+    plt.clf()
+
+
+    plt.plot(range(accuracies_fake.shape[0]), accuracies_fake.detach().cpu().numpy())
+    plt.ylabel('Accuracy fake')
+    plt.xlabel('Epoch')
+    plt.savefig('figs/accuracy_fake.svg')
+    plt.clf()
+
+    '''
+    for d in range(1, sequence_length):
+        plt.plot(range(scores3.shape[0]), scores3[:, d - 1, :].numpy())
+        plt.ylabel('Transition score')
+        plt.xlabel('Epoch')
+        title = 'd=' + str(d)
+        plt.title(title)
+        labels = [ENDPOINT.vocab.itos[i] for i in range(1, vocab_size)]
+        plt.legend(labels)
+        plt.savefig('figs/' + title + '.svg')
+        plt.clf()
+    '''
+
+    for v in range(1, vocab_size):
+        plt.plot(range(scores3.shape[0]), scores3[:, :, v - 1].numpy())
+        plt.ylabel('Transition score')
+        plt.xlabel('Epoch')
+        title = 'enpoint=' + ENDPOINT.vocab.itos[v]
+        plt.title(title)
+        labels = ['d=' + str(i) for i in range(1, sequence_length)]
+        plt.legend(labels)
+        plt.savefig('figs/' + title + '.svg')
+        plt.clf()
+    
+    
+def visualize_output(G, size, dataset, sequence_length):
+    iterator = Iterator(dataset, size)
+    data_real = next(iter(iterator)).ENDPOINTS.transpose(0, 1)
+    start_tokens = data_real[:, :1]
+    
+    print(data_real)
+
+    memory = G.initial_state(batch_size = size)
+
+    if cuda:
+        memory = memory.cuda()
+        start_tokens = start_tokens.cuda()
+
+    _, data_fake, _, _ = G(start_tokens, memory, sequence_length)
+
+    print(data_fake)
+    
+def save_frequency_comparisons(G, train, val, dummy_batch_size, vocab_size, sequence_length, ENDPOINT, prefix, N_max):
+    
+    counts_fake1, _ = get_fake_distribution(G, val, dummy_batch_size, vocab_size, sequence_length)
+    counts_fake2, _ = get_fake_distribution(G, train, dummy_batch_size, vocab_size, sequence_length)
+
+    counts_fake = counts_fake1 + counts_fake2
+    freqs_fake = counts_fake / torch.sum(counts_fake)
+
+    counts, freqs = get_distribution(None, ENDPOINT, vocab_size, fake = False)
+
+    save_relative_and_absolute(freqs, freqs_fake, counts, counts_fake, vocab_size, ENDPOINT, prefix, N_max)
