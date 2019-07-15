@@ -36,23 +36,23 @@ def random_search(n_runs):
     print('Data loaded, number of individuals:', n_individuals)
     
     # Generator params
-    mem_slots = [1, 2, 5]
-    head_size = [1, 2, 5, 10]
+    mem_slots = [1, 2, 5, 10]
+    head_size = [1, 2, 5, 10, 15]
     embed_size = [2, 3, 5, 10] # Same for the discriminator
-    temperature = [1, 5, 10, 50]
-    num_heads = [2, 5, 10, 15]
-    num_blocks = [1, 2, 4, 6]
+    temperature = [1, 5, 10, 50, 100]
+    num_heads = [2, 5, 10, 15, 25]
+    num_blocks = [1, 2, 4, 6, 8]
 
     # Discriminator params
-    n_embeddings = [1, 3, 5]
-    out_channels = [1, 3, 5, 10]
+    n_embeddings = [1, 3, 5, 10]
+    out_channels = [1, 3, 5, 10, 15]
     num_filters = [1, 2, 3] 
 
     # Training params
-    batch_size = [32, 64, 128]
+    batch_size = [32, 64, 128, 256]
     n_epochs = 10
     print_step = max(n_epochs // 10, 1)
-    lr = [1e-3, 1e-4, 1e-5]
+    lr = [1e-3, 1e-4, 1e-5, 1e-6]
     
     params = dict()
     
@@ -115,12 +115,11 @@ def random_search(n_runs):
 
         print('Time taken:', round_to_n(time.time() - start_time, n = 3), 'seconds')
 
-        
-    print(resulting_df)
-    resulting_df.to_csv('search_results/random_search.csv')
+        print(resulting_df)
+        resulting_df.to_csv('search_results/random_search.csv')
         
 
 
 if __name__ == '__main__':
-    n_runs = 2
+    n_runs = 20
     random_search(n_runs)
