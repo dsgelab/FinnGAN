@@ -36,23 +36,23 @@ def random_search(n_runs):
     print('Data loaded, number of individuals:', n_individuals)
     
     # Generator params
-    mem_slots = [1, 2, 5, 10]
-    head_size = [1, 2, 5, 10, 15]
-    embed_size = [2, 3, 5, 10] # Same for the discriminator
-    temperature = [1, 5, 10, 50, 100]
-    num_heads = [2, 5, 10, 15, 25]
-    num_blocks = [1, 2, 4, 6, 8]
+    mem_slots = np.arange(1, 11)
+    head_size = np.arange(1, 11)
+    embed_size = np.arange(2, 11) # Same for the discriminator
+    temperature = np.arange(1, 100)
+    num_heads = np.arange(1, 21)
+    num_blocks = np.arange(1, 11)
 
     # Discriminator params
-    n_embeddings = [1, 3, 5, 10]
-    out_channels = [1, 3, 5, 10, 15]
-    num_filters = [1, 2, 3] 
+    n_embeddings = np.arange(1, 11)
+    out_channels = np.arange(1, 11)
+    num_filters = np.arange(1, sequence_length - 1)
 
     # Training params
-    batch_size = [32, 64, 128, 256]
+    batch_size = np.arange(32, 256)
     n_epochs = 10
     print_step = max(n_epochs // 10, 1)
-    lr = [1e-3, 1e-4, 1e-5, 1e-6]
+    lr = np.arange(2, 8)
     
     params = dict()
     
@@ -81,11 +81,7 @@ def random_search(n_runs):
         chosen_params = dict()
         
         for k, v in params.items():
-            if k != 'lr':
-                chosen_params[k] = int(np.random.choice(v))
-            else:
-                chosen_params[k] = float(np.random.choice(v))
-            
+            chosen_params[k] = int(np.random.choice(v))
             
         print('Params chosen:', chosen_params)
         
@@ -93,6 +89,8 @@ def random_search(n_runs):
             out_channels, num_filters, batch_size, lr = tuple(chosen_params.values())
         
         filter_sizes = list(range(2, 2 + num_filters)) # values can be at most the sequence_length
+        lr = 10 ** (-lr)
+        print('lr:', lr)
         
         dummy_batch_size = 128
 
@@ -122,4 +120,5 @@ def random_search(n_runs):
 
 if __name__ == '__main__':
     n_runs = 20
-    random_search(n_runs)
+    with torch.autograd.detect_anomaly():
+        random_search(n_runs)

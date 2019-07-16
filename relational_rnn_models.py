@@ -3,6 +3,7 @@ from torch import nn
 import torch.nn.functional as F
 from torch.autograd import Variable
 import numpy as np
+from math import isnan
 
 cuda = torch.cuda.is_available()
 
@@ -335,7 +336,7 @@ class RelationalMemoryGenerator(nn.Module):
         next_token = torch.argmax(result, dim=1).view(result.shape[0], -1)
         return result, next_token
 
-    def forward_step(self, token, memory, temperature, treat_input_as_matrix = False):
+    def forward_step(self, token, memory, temperature, treat_input_as_matrix = False, eps = 1e-20):
         """
         Forward step of the relational memory core.
         Args:
@@ -383,7 +384,7 @@ class RelationalMemoryGenerator(nn.Module):
         
         output = self.output_to_token_decoder(output)
         output = F.softmax(output, dim = 1)
-        output = torch.log(output)
+        output = torch.log(output + eps)
         
         logit, next_token = self.st_gumbel_softmax(output, temperature)
         

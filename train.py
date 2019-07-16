@@ -3,6 +3,7 @@ import torch.nn as nn
 import torchtext
 from torchtext.data import Field, Iterator, Dataset, Example
 from utils import *
+from math import isnan
 
 
 cuda = torch.cuda.is_available()
