@@ -406,12 +406,17 @@ def save_plots_of_train_scores(scores1, scores2, scores3, accuracies_real, accur
         plt.clf()
     
     
-def visualize_output(G, size, dataset, sequence_length):
+def visualize_output(G, size, dataset, sequence_length, ENDPOINT):
     iterator = Iterator(dataset, size)
     data_real = next(iter(iterator)).ENDPOINTS.transpose(0, 1)
     start_tokens = data_real[:, :1]
     
-    print(data_real)
+    print('REAL:')
+    for indv in data_real:
+        tmp = []
+        for i in indv:
+            tmp.append(ENDPOINT.vocab.itos[i])
+        print(tmp)
 
     memory = G.initial_state(batch_size = size)
 
@@ -421,7 +426,12 @@ def visualize_output(G, size, dataset, sequence_length):
 
     _, data_fake, _, _ = G(start_tokens, memory, sequence_length)
 
-    print(data_fake)
+    print('FAKE:')
+    for indv in data_fake:
+        tmp = []
+        for i in indv:
+            tmp.append(ENDPOINT.vocab.itos[i])
+        print(tmp)
     
 def save_frequency_comparisons(G, train, val, dummy_batch_size, vocab_size, sequence_length, ENDPOINT, prefix, N_max):
     
