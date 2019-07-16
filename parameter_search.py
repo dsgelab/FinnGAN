@@ -31,7 +31,7 @@ print('Device:', device)
 Tensor = torch.cuda.FloatTensor if cuda else torch.FloatTensor
 
 def random_search(n_runs):
-    train, val, ENDPOINT, vocab_size, sequence_length, n_individuals = get_dataset(nrows = 3_000_000)
+    train, val, ENDPOINT, AGE, SEX, vocab_size, sequence_length, n_individuals = get_dataset(nrows = 3_000_000)
 
     print('Data loaded, number of individuals:', n_individuals)
     
@@ -120,5 +120,5 @@ def random_search(n_runs):
 
 if __name__ == '__main__':
     n_runs = 20
-    with torch.autograd.detect_anomaly():
-        random_search(n_runs)
+    #with torch.autograd.detect_anomaly():
+    random_search(n_runs)

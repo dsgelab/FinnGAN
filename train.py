@@ -29,7 +29,7 @@ def pretrain_generator(G, train, batch_size, vocab_size, sequence_length, n_epoc
         count = 0
         
         for batch in train_iter:
-            train_data = batch.ENDPOINTS.transpose(0, 1)
+            train_data = batch.ENDPOINT.transpose(0, 1)
             train_data_one_hot = F.one_hot(train_data, vocab_size).type(Tensor)
             
             start_token = train_data[:, :1]
@@ -91,7 +91,7 @@ def train_GAN(G, D, train, val, ENDPOINT, batch_size, vocab_size, sequence_lengt
         #count = 0
         
         for batch in train_iter:
-            train_data = batch.ENDPOINTS.transpose(0, 1)
+            train_data = batch.ENDPOINT.transpose(0, 1)
             train_data_one_hot = F.one_hot(train_data, vocab_size).type(Tensor)
 
             start_token = train_data[:, :1]

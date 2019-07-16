@@ -44,31 +44,29 @@ def get_distribution(data, field, vocab_size, fake = True):
     return counts, freqs
 
 
-def get_sequence_of_codes(subject, sequence_length):
-    codes = []
+def get_sequence_of_codes(subject):
+    codes = ['None' for _ in range(2017 - 2000 + 1)]
     
-    count = 0
-    for i in subject.sort_values('EVENT_AGE').index:
-        codes.append(subject.loc[i, 'ENDPOINT'])
-        count += 1
-        if count == sequence_length:
-            break
+    years = subject.groupby('EVENT_YEAR')
+    
+    for g, year in years:
+        if year['ENDPOINT'].isin(['C3_BREAST']).any():
+            value = 'C3_BREAST'
+        elif year['ENDPOINT'].isin(['I9_CHD']).any():
+            value = 'I9_CHD'
+        else:
+            value = np.random.choice(year['ENDPOINT'])
+        codes[g - 2000] = value
         
     res = ' '.join(codes)
     return res
 
-def get_sequence_of_time_differences(subject, sequence_length):
-    times = [0]
+def get_age(subject):
+    event = subject.sort_values('EVENT_AGE').iloc[0]
     
-    count = 0
-    for i in subject.sort_values('EVENT_AGE').index:
-        times.append(subject.loc[i, 'EVENT_AGE'])
-        count += 1
-        if count == sequence_length:
-            break
+    age = event['EVENT_AGE'] + 2000 - event['EVENT_YEAR']
         
-    res = np.diff(times)
-    return res
+    return age
 
 
 
@@ -170,7 +168,7 @@ def get_fake_distribution(G, dataset, batch_size, vocab_size, sequence_length):
     data_fake = []
     
     for batch in iterator:
-        data_tmp = batch.ENDPOINTS.transpose(0, 1)
+        data_tmp = batch.ENDPOINT.transpose(0, 1)
 
         start_tokens = data_tmp[:, :1]
         memory = G.initial_state(batch_size = start_tokens.shape[0])
@@ -207,7 +205,7 @@ def get_transition_score(G, dataset, batch_size, d, separate, vocab_size, sequen
     data_fake = []
     
     for batch in iterator:
-        data_tmp = batch.ENDPOINTS.transpose(0, 1)
+        data_tmp = batch.ENDPOINT.transpose(0, 1)
         data.append(data_tmp)
 
         start_tokens = data_tmp[:, :1]
@@ -318,30 +316,40 @@ def get_scores(G, ENDPOINT, dataset, batch_size, separate1, separate2, vocab_siz
 def get_dataset(nrows = 3_000_000):
     filename = 'data/FINNGEN_ENDPOINTS_DF3_longitudinal_V1_for_SandBox.txt.gz'
 
-    endpoints = ['I9_HYPTENS', 'I9_ANGINA', 'I9_HEARTFAIL_NS', 'I9_STR_EXH', 'I9_CHD']
+    endpoints = ['I9_HYPTENS', 'I9_ANGINA', 'I9_HEARTFAIL_NS', 'I9_STR_EXH', 'I9_CHD', 'C3_BREAST']
 
     events = pd.read_csv(filename, compression = 'infer', sep='\t', nrows = nrows)
 
     # include all endpoints in a list
     events = events[events['ENDPOINT'].isin(endpoints)]
-    events = events.groupby('FINNGENID').filter(lambda x: len(x) > 1)
+    #events = events.groupby('FINNGENID').filter(lambda x: len(x) > 1)
+    events = events[events['EVENT_YEAR'] >= 2000]
+    
+    filename = 'data/FINNGEN_MINIMUM_DATA_R3_V1.txt'
+
+    patients = pd.read_csv(filename, compression = 'infer', sep='\t')
+    events = pd.merge(events, patients[['FINNGENID', 'SEX']])
 
     subjects = events['FINNGENID'].unique()
     n_individuals = len(subjects)
 
-    sequence_length = min(events.groupby('FINNGENID').apply(lambda x: len(x)).max(), max_sequence_length)
+    #sequence_length = min(events.groupby('FINNGENID').apply(lambda x: len(x)).max(), max_sequence_length)
+    sequence_length = 2017 - 2000 + 1
 
-    sequences_of_codes = events.groupby('FINNGENID').apply(get_sequence_of_codes, (sequence_length))
-    sequences_of_times = events.groupby('FINNGENID').apply(get_sequence_of_time_differences, (sequence_length))
+    sequences_of_codes = events.groupby('FINNGENID').apply(get_sequence_of_codes)
+    ages = events.groupby('FINNGENID').apply(get_age)
+    sexes = events.groupby('FINNGENID')['SEX'].first()
 
-    sequences = pd.DataFrame({'ENDPOINTS': sequences_of_codes, 'TIME_DIFFS': sequences_of_times})
+    sequences = pd.DataFrame({'ENDPOINT': sequences_of_codes, 'AGE': ages, 'SEX': sexes})
 
 
     tokenize = lambda x: x.split(' ')
+    
+    ENDPOINT = Field(tokenize = tokenize)
+    AGE = Field(sequential = False, use_vocab = False)
+    SEX = Field()
 
-    ENDPOINT = Field(fix_length = sequence_length, tokenize = tokenize)
-
-    fields = [('ENDPOINTS', ENDPOINT), ('TIME_DIFFS', None)]
+    fields = [('ENDPOINT', ENDPOINT), ('AGE', AGE), ('SEX', SEX)]
 
     train_sequences, val_sequences = train_test_split(sequences, test_size = 0.1)
 
@@ -349,10 +357,11 @@ def get_dataset(nrows = 3_000_000):
     val = DataFrameDataset(val_sequences, fields)
 
     ENDPOINT.build_vocab(train, val)
+    SEX.build_vocab(train, val)
 
     vocab_size = len(ENDPOINT.vocab.freqs) + 2
     
-    return train, val, ENDPOINT, vocab_size, sequence_length, n_individuals
+    return train, val, ENDPOINT, AGE, SEX, vocab_size, sequence_length, n_individuals
 
 def save_plots_of_train_scores(scores1, scores2, scores3, accuracies_real, accuracies_fake, sequence_length, vocab_size, ENDPOINT):
     plt.plot(range(scores1.shape[0]), scores1.numpy())
@@ -408,10 +417,11 @@ def save_plots_of_train_scores(scores1, scores2, scores3, accuracies_real, accur
     
 def visualize_output(G, size, dataset, sequence_length, ENDPOINT):
     iterator = Iterator(dataset, size)
-    data_real = next(iter(iterator)).ENDPOINTS.transpose(0, 1)
+    data_real = next(iter(iterator)).ENDPOINT.transpose(0, 1)
     start_tokens = data_real[:, :1]
     
     print('REAL:')
+    print(data_real)
     for indv in data_real:
         tmp = []
         for i in indv:
@@ -427,6 +437,7 @@ def visualize_output(G, size, dataset, sequence_length, ENDPOINT):
     _, data_fake, _, _ = G(start_tokens, memory, sequence_length)
 
     print('FAKE:')
+    print(data_fake)
     for indv in data_fake:
         tmp = []
         for i in indv:
@@ -444,3 +455,25 @@ def save_frequency_comparisons(G, train, val, dummy_batch_size, vocab_size, sequ
     counts, freqs = get_distribution(None, ENDPOINT, vocab_size, fake = False)
 
     save_relative_and_absolute(freqs, freqs_fake, counts, counts_fake, vocab_size, ENDPOINT, prefix, N_max)
+    
+def plot_data(data, ages, sexes, N=10, save=True):
+    data = data[:N, :].numpy()
+    
+    new_data = np.empty(data.shape, dtype = 'object')
+    for row, col in itertools.product(range(data.shape[0]), range(data.shape[1])):
+        new_data[row, col] = ENDPOINT.vocab.itos[data[row, col]]
+    
+    cmap = {
+        'None': '#ffffff',
+    }
+    
+    fig, ax = plt.subplots(figsize=(8, 5))
+    ax = catheat.heatmap(new_data, cmap = cmap, ax = ax, linewidths = .5, leg_pos = 'top')
+    
+    labels = list(map(lambda x: SEX.vocab.itos[sexes[x]] + ', ' + str(int(ages[x])), range(N)))
+    plt.yticks(np.arange(N) + 0.5, labels, rotation = 0)
+    
+    if save:
+        plt.savefig('figs/catheat.svg')
+    else:
+        plt.show()
