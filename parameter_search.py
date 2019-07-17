@@ -100,6 +100,13 @@ def random_search(n_runs):
 
         G = RelationalMemoryGenerator(mem_slots, head_size, embed_size, vocab_size, temperature, num_heads, num_blocks)
         D = RelGANDiscriminator(n_embeddings, vocab_size, embed_size, sequence_length, out_channels, filter_sizes)
+        
+        if torch.cuda.device_count() > 1:
+            print("Using", torch.cuda.device_count(), "GPUs")
+            G = nn.DataParallel(G)
+            D = nn.DataParallel(D)
+        elif cuda:
+            print("Using 1 GPU")
 
         # Call train function
         scores1, scores2, scores3, accuracies_real, accuracies_fake = train_GAN(

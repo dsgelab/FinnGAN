@@ -33,7 +33,7 @@ Tensor = torch.cuda.FloatTensor if cuda else torch.FloatTensor
 
 def main():
     
-    train, val, ENDPOINT, AGE, SEX, vocab_size, sequence_length, n_individuals = get_dataset(nrows = 300_000_000)
+    train, val, ENDPOINT, AGE, SEX, vocab_size, sequence_length, n_individuals = get_dataset(nrows = 3_000_000)
     
     print('Data loaded, number of individuals:', n_individuals)
 
@@ -43,7 +43,14 @@ def main():
 
     G = RelationalMemoryGenerator(mem_slots, head_size, embed_size, vocab_size, temperature, num_heads, num_blocks)
     D = RelGANDiscriminator(n_embeddings, vocab_size, embed_size, sequence_length, out_channels, filter_sizes)
-
+    
+    if torch.cuda.device_count() > 1:
+        print("Using", torch.cuda.device_count(), "GPUs")
+        G = nn.DataParallel(G)
+        D = nn.DataParallel(D)
+    elif cuda:
+        print("Using 1 GPU")
+        
     N_max = 10
     prefix = 'Before:'
     
