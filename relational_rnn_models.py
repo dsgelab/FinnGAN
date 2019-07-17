@@ -7,6 +7,11 @@ from math import isnan
 
 cuda = torch.cuda.is_available()
 
+# Try setting the device to a GPU
+device = torch.device("cuda:0" if cuda else "cpu")
+
+Tensor = torch.cuda.FloatTensor if cuda else torch.FloatTensor
+
 # this class largely follows the official sonnet implementation
 # https://github.com/deepmind/sonnet/blob/master/sonnet/python/modules/relational_memory.py
 
@@ -95,7 +100,7 @@ class RelationalMemoryGenerator(nn.Module):
 
         ########## parameters for initial embedded input projection ##########
         self.embed_size = embed_size
-        self.input_projector = nn.Linear(self.embed_size, self.mem_size)
+        self.input_projector = nn.Linear(self.embed_size + 2, self.mem_size)
 
         ########## parameters for gating ##########
         self.num_gates = 2 * self.calculate_gate_size()
@@ -336,7 +341,7 @@ class RelationalMemoryGenerator(nn.Module):
         next_token = torch.argmax(result, dim=1).view(result.shape[0], -1)
         return result, next_token
 
-    def forward_step(self, token, memory, temperature, treat_input_as_matrix = False, eps = 1e-20):
+    def forward_step(self, token, age, sex, memory, temperature, eps = 1e-20):
         """
         Forward step of the relational memory core.
         Args:
@@ -351,20 +356,20 @@ class RelationalMemoryGenerator(nn.Module):
         """
 
         # first embed the tokens into vectors
-        embed = self.dropout(self.token_to_embed_encoder(token))
+        embed = self.token_to_embed_encoder(token)
 
-        if treat_input_as_matrix:
-            # keep (Batch, Seq, ...) dim (0, 1), flatten starting from dim 2
-            embed = embed.view(embed.shape[0], embed.shape[1], -1)
-            # apply linear layer for dim 2
-            inputs = self.input_projector(embed)
-        else:
-            # keep (Batch, ...) dim (0), flatten starting from dim 1
-            embed = embed.view(embed.shape[0], -1)
-            # apply linear layer for dim 1
-            inputs = self.input_projector(embed)
-            # unsqueeze the time step to dim 1
-            inputs = inputs.unsqueeze(dim=1)
+        # keep (Batch, ...) dim (0), flatten starting from dim 1
+        embed = embed.view(embed.shape[0], -1)
+        
+        # include age and sex information
+        embed = torch.cat([embed, age, sex], dim = 1) # [batch_size, embed_size + 2]
+        embed = self.dropout(embed)
+        
+        # apply linear layer for dim 1
+        inputs = self.input_projector(embed)
+        
+        # unsqueeze the time step to dim 1
+        inputs = inputs.unsqueeze(dim=1)
 
         memory_plus_input = torch.cat([memory, inputs], dim=1)
         next_memory = self.attend_over_memory(memory_plus_input)
@@ -403,7 +408,7 @@ class RelationalMemoryGenerator(nn.Module):
 
         return logit, next_memory
 
-    def forward(self, start_token, memory, sequence_length, temperature = None, targets=None, require_logits=True):
+    def forward(self, start_token, age, sex, memory, sequence_length, temperature = None, targets=None, require_logits=True):
         if temperature is None:
             temperature = self.temperature
         
@@ -417,13 +422,18 @@ class RelationalMemoryGenerator(nn.Module):
 
         # targets are flattened [seq, batch] => [seq * batch], so the dimension is correct
 
-        logits = [F.one_hot(start_token, self.vocab_size).type(torch.cuda.FloatTensor if cuda else torch.FloatTensor)]
+        logits = [F.one_hot(start_token, self.vocab_size).type(Tensor)]
         tokens = [start_token]
         token = start_token
         batch_size = start_token.shape[0]
         
+        ages = age.view(-1, 1).type(Tensor) + torch.arange(sequence_length, dtype = torch.float32, device = device)
+        ages /= 100
+        
+        sex = (sex.view(-1, 1) - 2).type(Tensor)
+        
         for idx_step in range(sequence_length - 1):
-            logit, token, memory = self.forward_step(token, memory, temperature)
+            logit, token, memory = self.forward_step(token, ages[:, idx_step + 1].view(-1, 1), sex, memory, temperature)
             logits.append(logit.view(batch_size, 1, -1))
             tokens.append(token.view(batch_size, 1))
         # concat the output from list(seq_length) of [batch, vocab] to [seq * batch, vocab]

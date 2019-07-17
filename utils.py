@@ -6,11 +6,13 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
 import torchtext
+import itertools
 from torchtext.data import Field, Iterator, Dataset, Example
 import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
 import matplotlib.pyplot as plt
 from params import *
+import catheat
 
 
 cuda = torch.cuda.is_available()
@@ -117,7 +119,7 @@ class SeriesExample(Example):
 
     
 def get_transition_matrix(data, vocab_size, d = 1, eps = 1e-20):
-    transition_count = torch.zeros(vocab_size - 1, vocab_size - 1)
+    transition_count = torch.zeros(vocab_size - 2, vocab_size - 2)
 
     for indv in data:
         for idx in range(len(indv) - d):
@@ -125,8 +127,8 @@ def get_transition_matrix(data, vocab_size, d = 1, eps = 1e-20):
             i2 = i1 + d
             ep1 = indv[i1]
             ep2 = indv[i2]
-            if ep1 > 0 and ep2 > 0:
-                transition_count[ep1 - 1, ep2 - 1] += 1
+            if ep1 > 1 and ep2 > 1:
+                transition_count[ep1 - 2, ep2 - 2] += 1
                     
     #print(torch.sum(transition_count, dim = 1))
     transition_freq = (transition_count.transpose(0, 1) / (torch.sum(transition_count, dim = 1) + eps)).transpose(0, 1)
@@ -177,7 +179,7 @@ def get_fake_distribution(G, dataset, batch_size, vocab_size, sequence_length):
             start_tokens = start_tokens.cuda()
             memory = memory.cuda()
 
-        _, data_fake_tmp, _, _ = G(start_tokens, memory, sequence_length)
+        _, data_fake_tmp, _, _ = G(start_tokens, batch.AGE, batch.SEX, memory, sequence_length)
         
         data_fake.append(data_fake_tmp.cpu())
     
@@ -215,7 +217,7 @@ def get_transition_score(G, dataset, batch_size, d, separate, vocab_size, sequen
             start_tokens = start_tokens.cuda()
             memory = memory.cuda()
 
-        _, data_fake_tmp, _, _ = G(start_tokens, memory, sequence_length)
+        _, data_fake_tmp, _, _ = G(start_tokens, batch.AGE, batch.SEX, memory, sequence_length)
         
         data_fake.append(data_fake_tmp.cpu())
     
@@ -227,7 +229,7 @@ def get_transition_score(G, dataset, batch_size, d, separate, vocab_size, sequen
     transition_count_fake, transition_freq_fake = get_transition_matrix(data_fake, vocab_size, d)
     
     chi_sqrd_ds = []
-    for i in range(vocab_size - 1):
+    for i in range(transition_count_real.shape[0]):
         chi_sqrd_d = chi_sqrd_dist(transition_count_fake[i, :], transition_count_real[i, :])
         chi_sqrd_ds.append(chi_sqrd_d)
         
@@ -403,8 +405,8 @@ def save_plots_of_train_scores(scores1, scores2, scores3, accuracies_real, accur
         plt.clf()
     '''
 
-    for v in range(1, vocab_size):
-        plt.plot(range(scores3.shape[0]), scores3[:, :, v - 1].numpy())
+    for v in range(2, vocab_size):
+        plt.plot(range(scores3.shape[0]), scores3[:, :, v - 2].numpy())
         plt.ylabel('Transition score')
         plt.xlabel('Epoch')
         title = 'enpoint=' + ENDPOINT.vocab.itos[v]
@@ -415,49 +417,9 @@ def save_plots_of_train_scores(scores1, scores2, scores3, accuracies_real, accur
         plt.clf()
     
     
-def visualize_output(G, size, dataset, sequence_length, ENDPOINT):
-    iterator = Iterator(dataset, size)
-    data_real = next(iter(iterator)).ENDPOINT.transpose(0, 1)
-    start_tokens = data_real[:, :1]
     
-    print('REAL:')
-    print(data_real)
-    for indv in data_real:
-        tmp = []
-        for i in indv:
-            tmp.append(ENDPOINT.vocab.itos[i])
-        print(tmp)
-
-    memory = G.initial_state(batch_size = size)
-
-    if cuda:
-        memory = memory.cuda()
-        start_tokens = start_tokens.cuda()
-
-    _, data_fake, _, _ = G(start_tokens, memory, sequence_length)
-
-    print('FAKE:')
-    print(data_fake)
-    for indv in data_fake:
-        tmp = []
-        for i in indv:
-            tmp.append(ENDPOINT.vocab.itos[i])
-        print(tmp)
-    
-def save_frequency_comparisons(G, train, val, dummy_batch_size, vocab_size, sequence_length, ENDPOINT, prefix, N_max):
-    
-    counts_fake1, _ = get_fake_distribution(G, val, dummy_batch_size, vocab_size, sequence_length)
-    counts_fake2, _ = get_fake_distribution(G, train, dummy_batch_size, vocab_size, sequence_length)
-
-    counts_fake = counts_fake1 + counts_fake2
-    freqs_fake = counts_fake / torch.sum(counts_fake)
-
-    counts, freqs = get_distribution(None, ENDPOINT, vocab_size, fake = False)
-
-    save_relative_and_absolute(freqs, freqs_fake, counts, counts_fake, vocab_size, ENDPOINT, prefix, N_max)
-    
-def plot_data(data, ages, sexes, N=10, save=True):
-    data = data[:N, :].numpy()
+def plot_data(data, ages, sexes, ENDPOINT, SEX, N=10, save=True, filename='figs/catheat.svg'):
+    data = data[:N, :].cpu().numpy()
     
     new_data = np.empty(data.shape, dtype = 'object')
     for row, col in itertools.product(range(data.shape[0]), range(data.shape[1])):
@@ -474,6 +436,36 @@ def plot_data(data, ages, sexes, N=10, save=True):
     plt.yticks(np.arange(N) + 0.5, labels, rotation = 0)
     
     if save:
-        plt.savefig('figs/catheat.svg')
+        plt.savefig(filename)
     else:
         plt.show()
+    
+def visualize_output(G, size, dataset, sequence_length, ENDPOINT, SEX):
+    iterator = Iterator(dataset, size)
+    batch = next(iter(iterator))
+    data_real = batch.ENDPOINT.transpose(0, 1)
+    start_tokens = data_real[:, :1]
+    
+    plot_data(data_real, batch.AGE.view(-1), batch.SEX.view(-1), ENDPOINT, SEX, N=size, save=True, filename='figs/catheat_real.svg')
+
+    memory = G.initial_state(batch_size = size)
+
+    if cuda:
+        memory = memory.cuda()
+        start_tokens = start_tokens.cuda()
+
+    _, data_fake, _, _ = G(start_tokens, batch.AGE, batch.SEX, memory, sequence_length)
+
+    plot_data(data_fake, batch.AGE.view(-1), batch.SEX.view(-1), ENDPOINT, SEX, N=size, save=True, filename='figs/catheat_fake.svg')
+    
+def save_frequency_comparisons(G, train, val, dummy_batch_size, vocab_size, sequence_length, ENDPOINT, prefix, N_max):
+    
+    counts_fake1, _ = get_fake_distribution(G, val, dummy_batch_size, vocab_size, sequence_length)
+    counts_fake2, _ = get_fake_distribution(G, train, dummy_batch_size, vocab_size, sequence_length)
+
+    counts_fake = counts_fake1 + counts_fake2
+    freqs_fake = counts_fake / torch.sum(counts_fake)
+
+    counts, freqs = get_distribution(None, ENDPOINT, vocab_size, fake = False)
+
+    save_relative_and_absolute(freqs, freqs_fake, counts, counts_fake, vocab_size, ENDPOINT, prefix, N_max)

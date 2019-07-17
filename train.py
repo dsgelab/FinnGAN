@@ -41,7 +41,7 @@ def pretrain_generator(G, train, batch_size, vocab_size, sequence_length, n_epoc
                 start_token = start_token.cuda()
                 memory = memory.cuda()
                 
-            logits, _, _, _ = G(start_token, memory, sequence_length, 1.0)
+            logits, _, _, _ = G(start_token, batch.AGE, batch.SEX, memory, sequence_length, 1.0)
 
             loss = loss_function(logits, train_data_one_hot)
             
@@ -108,10 +108,10 @@ def train_GAN(G, D, train, val, ENDPOINT, batch_size, vocab_size, sequence_lengt
                 memory = memory.cuda()
 
             temp = temperature ** ((e + 1) / n_epochs)
-            fake_one_hot, _, _, _ = G(start_token, memory, sequence_length, temp)
+            fake_one_hot, _, _, _ = G(start_token, batch.AGE, batch.SEX, memory, sequence_length, temp)
 
             # Loss measures generator's ability to fool the discriminator
-            g_loss = adversarial_loss(D(fake_one_hot).view(-1), valid)
+            g_loss = adversarial_loss(D(fake_one_hot, batch.AGE, batch.SEX).view(-1), valid)
 
             g_loss.backward()
             optimizer_G.step()
@@ -119,8 +119,8 @@ def train_GAN(G, D, train, val, ENDPOINT, batch_size, vocab_size, sequence_lengt
             optimizer_D.zero_grad()
 
             # Measure discriminator's ability to classify real from generated samples
-            D_out_real = D(train_data_one_hot).view(-1)
-            D_out_fake = D(fake_one_hot.detach()).view(-1)
+            D_out_real = D(train_data_one_hot, batch.AGE, batch.SEX).view(-1)
+            D_out_fake = D(fake_one_hot.detach(), batch.AGE, batch.SEX).view(-1)
             
             #print(D_out_real)
             #print(torch.round(D_out_real))
