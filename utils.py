@@ -431,7 +431,13 @@ def plot_data(data, ages, sexes, ENDPOINT, SEX, N=10, save=True, filename='figs/
         new_data[row, col] = ENDPOINT.vocab.itos[data[row, col]]
     
     cmap = {
-        'None': '#ffffff',
+        'None': '#FFFFFF',
+        'I9_HYPTENS': '#00FFDB', 
+        'I9_ANGINA': '#00AF66', 
+        'I9_HEARTFAIL_NS': '#FF88FF', 
+        'I9_STR_EXH': '#8D88D6', 
+        'I9_CHD': '#0073D6', 
+        'C3_BREAST': '#BE1200',
     }
     
     fig, ax = plt.subplots(figsize=(8, 5))

@@ -83,6 +83,6 @@ class RelGANDiscriminator(nn.Module):
         if feature_matching:
             output.append(features)
             
-        return tuple(output)
+        return tuple(output) if feature_matching else output[0]
     
     
