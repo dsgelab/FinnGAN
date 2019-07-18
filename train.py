@@ -35,13 +35,13 @@ def pretrain_generator(G, train, batch_size, vocab_size, sequence_length, n_epoc
             start_token = train_data[:, :1]
             optimizer.zero_grad()
 
-            memory = G.initial_state(batch_size = train_data.shape[0])
+            #memory = G.initial_state(batch_size = train_data.shape[0])
 
             if cuda:
                 start_token = start_token.cuda()
-                memory = memory.cuda()
+                #memory = memory.cuda()
                 
-            logits, _, _, _ = G(start_token, batch.AGE, batch.SEX, memory, sequence_length, 1.0)
+            logits, _, _ = G(start_token, batch.AGE, batch.SEX.view(-1), None, sequence_length, 1.0)
 
             loss = loss_function(logits, train_data_one_hot)
             
@@ -75,7 +75,8 @@ def train_GAN(G, D, train, val, ENDPOINT, batch_size, vocab_size, sequence_lengt
     print("[Scores:", *score, "]")
     scores.append(score)
     
-    adversarial_loss = torch.nn.BCELoss()
+    criterionD = torch.nn.BCELoss()
+    criterionG = torch.nn.MSELoss()
     
     optimizer_G = torch.optim.Adam(G.parameters(), lr=lr)
     optimizer_D = torch.optim.Adam(D.parameters(), lr=lr)
@@ -83,7 +84,8 @@ def train_GAN(G, D, train, val, ENDPOINT, batch_size, vocab_size, sequence_lengt
     if cuda:
         G.cuda()
         D.cuda()
-        adversarial_loss.cuda()
+        criterionD.cuda()
+        criterionG.cuda()
     
     for e in range(n_epochs):
         train_iter = Iterator(train, batch_size = batch_size, device = device)
@@ -103,15 +105,17 @@ def train_GAN(G, D, train, val, ENDPOINT, batch_size, vocab_size, sequence_lengt
             optimizer_G.zero_grad()
 
             # Generate a batch of images
-            memory = G.initial_state(batch_size = train_data.shape[0])
-            if cuda:
-                memory = memory.cuda()
+            #memory = G.initial_state(batch_size = train_data.shape[0])
+            #if cuda:
+                #memory = memory.cuda()
 
             temp = temperature ** ((e + 1) / n_epochs)
-            fake_one_hot, _, _, _ = G(start_token, batch.AGE, batch.SEX, memory, sequence_length, temp)
+            fake_one_hot, _, _ = G(start_token, batch.AGE, batch.SEX.view(-1), None, sequence_length, temp)
 
             # Loss measures generator's ability to fool the discriminator
-            g_loss = adversarial_loss(D(fake_one_hot, batch.AGE, batch.SEX).view(-1), valid)
+            _, D_features_fake = D(fake_one_hot, batch.AGE, batch.SEX.view(-1))
+            _, D_features_real = D(train_data_one_hot.detach(), batch.AGE, batch.SEX.view(-1))
+            g_loss = criterionG(D_features_fake.mean(dim = 0), D_features_real.mean(dim = 0))
 
             g_loss.backward()
             optimizer_G.step()
@@ -119,16 +123,16 @@ def train_GAN(G, D, train, val, ENDPOINT, batch_size, vocab_size, sequence_lengt
             optimizer_D.zero_grad()
 
             # Measure discriminator's ability to classify real from generated samples
-            D_out_real = D(train_data_one_hot, batch.AGE, batch.SEX).view(-1)
-            D_out_fake = D(fake_one_hot.detach(), batch.AGE, batch.SEX).view(-1)
+            D_out_real = D(train_data_one_hot, batch.AGE, batch.SEX.view(-1), feature_matching = False).view(-1)
+            D_out_fake = D(fake_one_hot.detach(), batch.AGE, batch.SEX.view(-1), feature_matching = False).view(-1)
             
             #print(D_out_real)
             #print(torch.round(D_out_real))
             accuracy_real = torch.mean(D_out_real)
             accuracy_fake = torch.mean(1 - D_out_fake)
             
-            real_loss = adversarial_loss(D_out_real, valid)
-            fake_loss = adversarial_loss(D_out_fake, fake)
+            real_loss = criterionD(D_out_real, valid)
+            fake_loss = criterionD(D_out_fake, fake)
             d_loss = (real_loss + fake_loss) / 2
 
             d_loss.backward()

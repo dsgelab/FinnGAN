@@ -408,12 +408,16 @@ class RelationalMemoryGenerator(nn.Module):
 
         return logit, next_memory
 
-    def forward(self, start_token, age, sex, memory, sequence_length, temperature = None, targets=None, require_logits=True):
+    def forward(self, start_token, age, sex, memory, sequence_length, temperature = None, require_logits=True):
         if temperature is None:
             temperature = self.temperature
         
         # Starting each batch, we detach the hidden state from how it was previously produced.
         # If we didn't, the model would try backpropagating all the way to start of the dataset.
+        if memory is None:
+            memory = self.initial_state(batch_size = start_token.shape[0])
+            if cuda:
+                memory = memory.cuda()
         memory = self.repackage_hidden(memory)
 
         # for loop implementation of (entire) recurrent forward pass of the model
@@ -421,13 +425,13 @@ class RelationalMemoryGenerator(nn.Module):
         # so the concatenated logits are [seq * batch, vocab]
 
         # targets are flattened [seq, batch] => [seq * batch], so the dimension is correct
-
+        
         logits = [F.one_hot(start_token, self.vocab_size).type(Tensor)]
         tokens = [start_token]
         token = start_token
         batch_size = start_token.shape[0]
-        
-        ages = age.view(-1, 1).type(Tensor) + torch.arange(sequence_length, dtype = torch.float32, device = device)
+                
+        ages = age.view(-1, 1).type(Tensor) + torch.arange(sequence_length).type(Tensor)#, dtype = torch.float32, device = device)
         ages /= 100
         
         sex = (sex.view(-1, 1) - 2).type(Tensor)
@@ -436,40 +440,11 @@ class RelationalMemoryGenerator(nn.Module):
             logit, token, memory = self.forward_step(token, ages[:, idx_step + 1].view(-1, 1), sex, memory, temperature)
             logits.append(logit.view(batch_size, 1, -1))
             tokens.append(token.view(batch_size, 1))
+            
         # concat the output from list(seq_length) of [batch, vocab] to [seq * batch, vocab]
         logits = torch.cat(logits, dim = 1)
         tokens = torch.cat(tokens, dim = 1)
         
-        if targets is not None:
-            if not self.use_adaptive_softmax:
-                # calculate loss inside this forward pass for more even VRAM usage of DataParallel
-                loss = self.criterion(logits, targets)
-            else:
-                # calculate the loss using adaptive softmax
-                _, loss = self.criterion_adaptive(logits, targets)
-        else:
-            loss = None
+        return logits, tokens, memory
+        
 
-        # the forward pass only returns loss, because returning logits causes uneven VRAM usage of DataParallel
-        # logits are provided only for sampling stage
-        if not require_logits:
-            return tokens, loss, memory
-        else:
-            return logits, tokens, loss, memory
-
-
-
-# ########## DEBUG: unit test code ##########
-# embed_size = 44
-# seq_length = 1
-# batch_size = 32
-# model = RelationalMemory(mem_slots=10, head_size=20, embed_size=embed_size, vocab_size=66, num_heads=8, num_blocks=1, forget_bias=1., input_bias=0.)
-# model_memory = model.initial_state(batch_size=batch_size)
-#
-# # random input
-# random_input = torch.randn((32, seq_length, embed_size))
-# # random targets
-# random_targets = torch.randn((32, seq_length, embed_size))
-#
-# # take a one step forward
-# logit, next_memory = model(random_input, model_memory, random_targets, treat_input_as_matrix=True)

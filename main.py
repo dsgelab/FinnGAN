@@ -33,7 +33,7 @@ Tensor = torch.cuda.FloatTensor if cuda else torch.FloatTensor
 
 def main():
     
-    train, val, ENDPOINT, AGE, SEX, vocab_size, sequence_length, n_individuals = get_dataset(nrows = 3_000_000)
+    train, val, ENDPOINT, AGE, SEX, vocab_size, sequence_length, n_individuals = get_dataset(nrows = 30_000_000)
     
     print('Data loaded, number of individuals:', n_individuals)
 

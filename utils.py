@@ -17,6 +17,11 @@ import catheat
 
 cuda = torch.cuda.is_available()
 
+# Try setting the device to a GPU
+device = torch.device("cuda:0" if cuda else "cpu")
+
+Tensor = torch.cuda.FloatTensor if cuda else torch.FloatTensor
+
 
 # Helper function(s)
 
@@ -173,13 +178,13 @@ def get_fake_distribution(G, dataset, batch_size, vocab_size, sequence_length):
         data_tmp = batch.ENDPOINT.transpose(0, 1)
 
         start_tokens = data_tmp[:, :1]
-        memory = G.initial_state(batch_size = start_tokens.shape[0])
+        #memory = G.initial_state(batch_size = start_tokens.shape[0])
 
         if cuda:
             start_tokens = start_tokens.cuda()
-            memory = memory.cuda()
+            #memory = memory.cuda()
 
-        _, data_fake_tmp, _, _ = G(start_tokens, batch.AGE, batch.SEX, memory, sequence_length)
+        _, data_fake_tmp, _ = G(start_tokens, batch.AGE, batch.SEX.view(-1), None, sequence_length)
         
         data_fake.append(data_fake_tmp.cpu())
     
@@ -211,13 +216,13 @@ def get_transition_score(G, dataset, batch_size, d, separate, vocab_size, sequen
         data.append(data_tmp)
 
         start_tokens = data_tmp[:, :1]
-        memory = G.initial_state(batch_size = start_tokens.shape[0])
+        #memory = G.initial_state(batch_size = start_tokens.shape[0])
 
         if cuda:
             start_tokens = start_tokens.cuda()
-            memory = memory.cuda()
+            #memory = memory.cuda()
 
-        _, data_fake_tmp, _, _ = G(start_tokens, batch.AGE, batch.SEX, memory, sequence_length)
+        _, data_fake_tmp, _ = G(start_tokens, batch.AGE, batch.SEX.view(-1), None, sequence_length)
         
         data_fake.append(data_fake_tmp.cpu())
     
@@ -448,13 +453,13 @@ def visualize_output(G, size, dataset, sequence_length, ENDPOINT, SEX):
     
     plot_data(data_real, batch.AGE.view(-1), batch.SEX.view(-1), ENDPOINT, SEX, N=size, save=True, filename='figs/catheat_real.svg')
 
-    memory = G.initial_state(batch_size = size)
+    #memory = G.initial_state(batch_size = size)
 
     if cuda:
-        memory = memory.cuda()
+        #memory = memory.cuda()
         start_tokens = start_tokens.cuda()
 
-    _, data_fake, _, _ = G(start_tokens, batch.AGE, batch.SEX, memory, sequence_length)
+    _, data_fake, _ = G(start_tokens, batch.AGE, batch.SEX.view(-1), None, sequence_length)
 
     plot_data(data_fake, batch.AGE.view(-1), batch.SEX.view(-1), ENDPOINT, SEX, N=size, save=True, filename='figs/catheat_fake.svg')
     
