@@ -31,21 +31,21 @@ print('Device:', device)
 Tensor = torch.cuda.FloatTensor if cuda else torch.FloatTensor
 
 def random_search(n_runs):
-    train, val, ENDPOINT, AGE, SEX, vocab_size, sequence_length, n_individuals = get_dataset(nrows = 3_000_000)
+    train, val, ENDPOINT, AGE, SEX, vocab_size, sequence_length, n_individuals = get_dataset(nrows = 30_000_000)
 
     print('Data loaded, number of individuals:', n_individuals)
     
     # Generator params
-    mem_slots = np.arange(1, 11)
-    head_size = np.arange(1, 11)
-    embed_size = np.arange(2, 11) # Same for the discriminator
+    mem_slots = np.arange(1, 21)
+    head_size = np.arange(1, 21)
+    embed_size = np.arange(2, 21) # Same for the discriminator
     temperature = np.arange(1, 100)
     num_heads = np.arange(1, 21)
-    num_blocks = np.arange(1, 11)
+    num_blocks = np.arange(1, 21)
 
     # Discriminator params
-    n_embeddings = np.arange(1, 11)
-    out_channels = np.arange(1, 11)
+    n_embeddings = np.arange(1, 21)
+    out_channels = np.arange(1, 21)
     num_filters = np.arange(1, sequence_length - 1)
 
     # Training params
@@ -78,54 +78,56 @@ def random_search(n_runs):
     print(resulting_df)
 
     for run in range(n_runs):
-        chosen_params = dict()
-        
-        for k, v in params.items():
-            chosen_params[k] = int(np.random.choice(v))
-            
-        print('Params chosen:', chosen_params)
-        
-        mem_slots, head_size, embed_size, temperature, num_heads, num_blocks, n_embeddings, \
-            out_channels, num_filters, batch_size, lr = tuple(chosen_params.values())
-        
-        filter_sizes = list(range(2, 2 + num_filters)) # values can be at most the sequence_length
-        lr = 10 ** (-lr)
-        print('lr:', lr)
-        
-        dummy_batch_size = 128
+        try:
+            chosen_params = dict()
 
-        # Train the GAN
+            for k, v in params.items():
+                chosen_params[k] = int(np.random.choice(v))
 
-        start_time = time.time()
+            print('Params chosen:', chosen_params)
 
-        G = RelationalMemoryGenerator(mem_slots, head_size, embed_size, vocab_size, temperature, num_heads, num_blocks)
-        D = RelGANDiscriminator(n_embeddings, vocab_size, embed_size, sequence_length, out_channels, filter_sizes)
-        
-        if torch.cuda.device_count() > 1:
-            print("Using", torch.cuda.device_count(), "GPUs")
-            G = nn.DataParallel(G)
-            D = nn.DataParallel(D)
-        elif cuda:
-            print("Using 1 GPU")
+            mem_slots, head_size, embed_size, temperature, num_heads, num_blocks, n_embeddings, \
+                out_channels, num_filters, batch_size, lr = tuple(chosen_params.values())
 
-        # Call train function
-        scores1, scores2, scores3, accuracies_real, accuracies_fake = train_GAN(
-            G, D, train, val, ENDPOINT, batch_size, vocab_size, sequence_length, n_epochs, lr, temperature, print_step, get_scores, dummy_batch_size
-        )
-        
-        chosen_params['chi-squared_score'] = float(scores1[-1])
-        chosen_params['transition_score'] = float(scores2[-1])
-        ser = pd.DataFrame({len(resulting_df): chosen_params}).T
-        resulting_df = pd.concat([resulting_df, ser], ignore_index=True)
+            filter_sizes = list(range(2, 2 + num_filters)) # values can be at most the sequence_length
+            lr = 10 ** (-lr)
+            print('lr:', lr)
 
-        print('Time taken:', round_to_n(time.time() - start_time, n = 3), 'seconds')
+            dummy_batch_size = 128
 
-        print(resulting_df)
-        resulting_df.to_csv('search_results/random_search.csv')
-        
+            # Train the GAN
+
+            start_time = time.time()
+
+            G = RelationalMemoryGenerator(mem_slots, head_size, embed_size, vocab_size, temperature, num_heads, num_blocks)
+            D = RelGANDiscriminator(n_embeddings, vocab_size, embed_size, sequence_length, out_channels, filter_sizes)
+
+            if torch.cuda.device_count() > 1:
+                print("Using", torch.cuda.device_count(), "GPUs")
+                G = nn.DataParallel(G)
+                D = nn.DataParallel(D)
+            elif cuda:
+                print("Using 1 GPU")
+
+            # Call train function
+            scores1, scores2, scores3, accuracies_real, accuracies_fake = train_GAN(
+                G, D, train, val, ENDPOINT, batch_size, vocab_size, sequence_length, n_epochs, lr, temperature, print_step, get_scores, dummy_batch_size
+            )
+
+            chosen_params['chi-squared_score'] = float(scores1[-1])
+            chosen_params['transition_score'] = float(scores2[-1])
+            ser = pd.DataFrame({len(resulting_df): chosen_params}).T
+            resulting_df = pd.concat([resulting_df, ser], ignore_index=True)
+
+            print('Time taken:', round_to_n(time.time() - start_time, n = 3), 'seconds')
+
+            print(resulting_df)
+            resulting_df.to_csv('search_results/random_search.csv')
+        except RuntimeError as e:
+            print(e)
 
 
 if __name__ == '__main__':
-    n_runs = 20
+    n_runs = 60
     #with torch.autograd.detect_anomaly():
     random_search(n_runs)
