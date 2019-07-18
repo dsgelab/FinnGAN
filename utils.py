@@ -123,22 +123,42 @@ class SeriesExample(Example):
         return ex
 
     
-def get_transition_matrix(data, vocab_size, d = 1, eps = 1e-20):
-    transition_count = torch.zeros(vocab_size - 2, vocab_size - 2)
+def get_transition_matrix(data, vocab_size, d = 1, ignore_time = False, eps = 1e-20):
+    if ignore_time:
+        transition_count = torch.zeros(vocab_size - 3, vocab_size - 3, 2) # no <unk>, <pad>, or None
+        
+        # This assumes that the index of 'None' is 2
+        for indv in data:
+            indv_not_none = indv[indv > 2]
+            for idx in range(len(indv_not_none) - 1):
+                i1 = idx
+                ep1 = indv_not_none[i1]
+                for ep2 in range(3, vocab_size):
+                    if (indv_not_none[i1+1:] == ep2).any():
+                        transition_count[ep1 - 3, ep2 - 3, 1] += 1
+                    else:
+                        transition_count[ep1 - 3, ep2 - 3, 0] += 1
+            
+        transition_freq = (transition_count.permute(2, 0, 1) / (torch.sum(transition_count, dim = -1) + eps)).permute(1, 2, 0)
+        
+    else:
+        transition_count = torch.zeros(vocab_size - 2, vocab_size - 2)
 
-    for indv in data:
-        for idx in range(len(indv) - d):
-            i1 = idx
-            i2 = i1 + d
-            ep1 = indv[i1]
-            ep2 = indv[i2]
-            if ep1 > 1 and ep2 > 1:
-                transition_count[ep1 - 2, ep2 - 2] += 1
-                    
-    #print(torch.sum(transition_count, dim = 1))
-    transition_freq = (transition_count.transpose(0, 1) / (torch.sum(transition_count, dim = 1) + eps)).transpose(0, 1)
+        for indv in data:
+            for idx in range(len(indv) - d):
+                i1 = idx
+                i2 = i1 + d
+                ep1 = indv[i1]
+                ep2 = indv[i2]
+                if ep1 > 1 and ep2 > 1:
+                    transition_count[ep1 - 2, ep2 - 2] += 1
+
+        #print(torch.sum(transition_count, dim = 1))
+        transition_freq = (transition_count.transpose(0, 1) / (torch.sum(transition_count, dim = 1) + eps)).transpose(0, 1)
                     
     return transition_count, transition_freq
+
+
 
 
 # Define generator evaluation functions
@@ -202,7 +222,7 @@ def get_score(G, ENDPOINT, dataset, batch_size, vocab_size, sequence_length):
     score = chi_sqrd_dist(counts_real, counts_fake)
     return score
 
-def get_transition_score(G, dataset, batch_size, d, separate, vocab_size, sequence_length):
+def get_transition_score(G, dataset, batch_size, d, ignore_time, separate, vocab_size, sequence_length):
     iterator = Iterator(dataset, batch_size = batch_size)
     
     if cuda:
@@ -230,28 +250,45 @@ def get_transition_score(G, dataset, batch_size, d, separate, vocab_size, sequen
     data = torch.cat(data)
     data_fake = torch.cat(data_fake)
     
-    transition_count_real, transition_freq_real = get_transition_matrix(data, vocab_size, d)
-    transition_count_fake, transition_freq_fake = get_transition_matrix(data_fake, vocab_size, d)
+    transition_count_real, transition_freq_real = get_transition_matrix(data, vocab_size, d, ignore_time)
+    transition_count_fake, transition_freq_fake = get_transition_matrix(data_fake, vocab_size, d, ignore_time)
     
-    chi_sqrd_ds = []
-    for i in range(transition_count_real.shape[0]):
-        chi_sqrd_d = chi_sqrd_dist(transition_count_fake[i, :], transition_count_real[i, :])
-        chi_sqrd_ds.append(chi_sqrd_d)
+    if ignore_time:
+        res = torch.zeros(transition_count_real.shape[:2])
         
-    chi_sqrd_ds = torch.tensor(chi_sqrd_ds)
+        for i in range(vocab_size - 3):
+            for j in range(vocab_size - 3):
+                res[i, j] = chi_sqrd_dist(transition_count_fake[i, j, :], transition_count_real[i, j, :])
+                
+        if separate:
+            return res
+        
+        return torch.mean(res, dim = 1)
+        
+    else:
+        chi_sqrd_ds = []
+        for i in range(transition_count_real.shape[0]):
+            chi_sqrd_d = chi_sqrd_dist(transition_count_fake[i, :], transition_count_real[i, :])
+            chi_sqrd_ds.append(chi_sqrd_d)
+
+        chi_sqrd_ds = torch.tensor(chi_sqrd_ds)
+
+        if separate:
+            return chi_sqrd_ds
+
+        return torch.mean(chi_sqrd_ds)
+
     
-    if separate:
-        return chi_sqrd_ds
-        
-    return torch.mean(chi_sqrd_ds)
-    
-def get_aggregate_transition_score(G, dataset, batch_size, separate1, separate2, vocab_size, sequence_length):
-    scores = []
-    for d in range(1, sequence_length):
-        transition_score = get_transition_score(G, dataset, batch_size, d, separate1, vocab_size, sequence_length)
-        scores.append(transition_score)
-        
-    result = torch.stack(scores)
+def get_aggregate_transition_score(G, dataset, batch_size, ignore_time, separate1, separate2, vocab_size, sequence_length):
+    if ignore_time:
+        result = get_transition_score(G, dataset, batch_size, None, True, separate1, vocab_size, sequence_length)
+    else:
+        scores = []
+        for d in range(1, sequence_length):
+            transition_score = get_transition_score(G, dataset, batch_size, d, False, separate1, vocab_size, sequence_length)
+            scores.append(transition_score)
+
+        result = torch.stack(scores)
     
     if separate2:
         return result
@@ -313,12 +350,12 @@ def save_relative_and_absolute(freqs, freqs_fake, counts, counts_fake, vocab_siz
 
 # Define the training function
 
-def get_scores(G, ENDPOINT, dataset, batch_size, separate1, separate2, vocab_size, sequence_length):
+def get_scores(G, ENDPOINT, dataset, batch_size, ignore_time, separate1, separate2, vocab_size, sequence_length):
     score1 = get_score(G, ENDPOINT, dataset, batch_size, vocab_size, sequence_length)
     
-    score2 = get_aggregate_transition_score(G, dataset, batch_size, separate1, separate2, vocab_size, sequence_length)
+    score2 = get_aggregate_transition_score(G, dataset, batch_size, ignore_time, separate1, separate2, vocab_size, sequence_length)
     
-    return score1, score2.mean(), score2
+    return score1, score2.mean(), score2.max(), score2
 
 def get_dataset(nrows = 3_000_000):
     filename = 'data/FINNGEN_ENDPOINTS_DF3_longitudinal_V1_for_SandBox.txt.gz'
@@ -370,19 +407,24 @@ def get_dataset(nrows = 3_000_000):
     
     return train, val, ENDPOINT, AGE, SEX, vocab_size, sequence_length, n_individuals
 
-def save_plots_of_train_scores(scores1, scores2, scores3, accuracies_real, accuracies_fake, sequence_length, vocab_size, ENDPOINT):
+def save_plots_of_train_scores(scores1, scores2_mean, scores2_max, scores2, accuracies_real, accuracies_fake, ignore_time, sequence_length, vocab_size, ENDPOINT):
     plt.plot(range(scores1.shape[0]), scores1.numpy())
     plt.ylabel('Chi-Squared Distance of frequencies')
     plt.xlabel('Epoch')
     plt.savefig('figs/chisqrd_freqs.svg')
     plt.clf()
 
-    plt.plot(range(scores2.shape[0]), scores2.numpy())
+    plt.plot(range(scores2_mean.shape[0]), scores2_mean.numpy())
     plt.ylabel('Mean transition score')
     plt.xlabel('Epoch')
     plt.savefig('figs/mean_transition_score.svg')
     plt.clf()
 
+    plt.plot(range(scores2_max.shape[0]), scores2_max.numpy())
+    plt.ylabel('Mean transition score')
+    plt.xlabel('Epoch')
+    plt.savefig('figs/max_transition_score.svg')
+    plt.clf()
 
     plt.plot(range(accuracies_real.shape[0]), accuracies_real.detach().cpu().numpy())
     plt.ylabel('Accuracy real')
@@ -397,29 +439,28 @@ def save_plots_of_train_scores(scores1, scores2, scores3, accuracies_real, accur
     plt.savefig('figs/accuracy_fake.svg')
     plt.clf()
 
-    '''
-    for d in range(1, sequence_length):
-        plt.plot(range(scores3.shape[0]), scores3[:, d - 1, :].numpy())
-        plt.ylabel('Transition score')
-        plt.xlabel('Epoch')
-        title = 'd=' + str(d)
-        plt.title(title)
-        labels = [ENDPOINT.vocab.itos[i] for i in range(1, vocab_size)]
-        plt.legend(labels)
-        plt.savefig('figs/' + title + '.svg')
-        plt.clf()
-    '''
-
-    for v in range(2, vocab_size):
-        plt.plot(range(scores3.shape[0]), scores3[:, :, v - 2].numpy())
-        plt.ylabel('Transition score')
-        plt.xlabel('Epoch')
-        title = 'enpoint=' + ENDPOINT.vocab.itos[v]
-        plt.title(title)
-        labels = ['d=' + str(i) for i in range(1, sequence_length)]
-        plt.legend(labels)
-        plt.savefig('figs/' + title + '.svg')
-        plt.clf()
+    if ignore_time:
+        for v in range(3, vocab_size):
+            plt.plot(range(scores2.shape[0]), scores2[:, v - 3, :].numpy())
+            plt.ylabel('Transition score')
+            plt.xlabel('Epoch')
+            title = 'enpoint=' + ENDPOINT.vocab.itos[v]
+            plt.title(title)
+            labels = ['endpoint=' + ENDPOINT.vocab.itos[i] for i in range(3, vocab_size)]
+            plt.legend(labels)
+            plt.savefig('figs/' + title + '.svg')
+            plt.clf()
+    else:
+        for v in range(2, vocab_size):
+            plt.plot(range(scores3.shape[0]), scores3[:, :, v - 2].numpy())
+            plt.ylabel('Transition score')
+            plt.xlabel('Epoch')
+            title = 'enpoint=' + ENDPOINT.vocab.itos[v]
+            plt.title(title)
+            labels = ['d=' + str(i) for i in range(1, sequence_length)]
+            plt.legend(labels)
+            plt.savefig('figs/' + title + '.svg')
+            plt.clf()
     
     
     

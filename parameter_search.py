@@ -44,7 +44,7 @@ def random_search(n_runs):
     num_blocks = np.arange(1, 21)
 
     # Discriminator params
-    n_embeddings = np.arange(1, 21)
+    n_embeddings = np.arange(1, vocab_size + 1)
     out_channels = np.arange(1, 21)
     num_filters = np.arange(1, sequence_length - 1)
 
@@ -70,8 +70,11 @@ def random_search(n_runs):
     params['batch_size'] = batch_size
     params['lr'] = lr
     
+    filename = 'search_results/random_search_{}.csv'.format(n_individuals)
+    print(filename)
+    
     try:
-        resulting_df = pd.read_csv('search_results/random_search.csv', index_col = 0)
+        resulting_df = pd.read_csv(filename, index_col = 0)
     except FileNotFoundError as e:
         print(e)
         resulting_df = pd.DataFrame()
@@ -94,6 +97,7 @@ def random_search(n_runs):
             print('lr:', lr)
 
             dummy_batch_size = 128
+            ignore_time = True
 
             # Train the GAN
 
@@ -102,27 +106,29 @@ def random_search(n_runs):
             G = RelationalMemoryGenerator(mem_slots, head_size, embed_size, vocab_size, temperature, num_heads, num_blocks)
             D = RelGANDiscriminator(n_embeddings, vocab_size, embed_size, sequence_length, out_channels, filter_sizes)
 
+            '''
             if torch.cuda.device_count() > 1:
                 print("Using", torch.cuda.device_count(), "GPUs")
                 G = nn.DataParallel(G)
                 D = nn.DataParallel(D)
             elif cuda:
                 print("Using 1 GPU")
+            '''
 
             # Call train function
-            scores1, scores2, scores3, accuracies_real, accuracies_fake = train_GAN(
-                G, D, train, val, ENDPOINT, batch_size, vocab_size, sequence_length, n_epochs, lr, temperature, print_step, get_scores, dummy_batch_size
+            scores1, scores2_mean, scores2_max, scores2, accuracies_real, accuracies_fake = train_GAN(
+                G, D, train, val, ENDPOINT, batch_size, vocab_size, sequence_length, n_epochs, lr, temperature, print_step, get_scores, ignore_time, dummy_batch_size
             )
 
             chosen_params['chi-squared_score'] = float(scores1[-1])
-            chosen_params['transition_score'] = float(scores2[-1])
+            chosen_params['transition_score'] = float(scores2_mean[-1])
             ser = pd.DataFrame({len(resulting_df): chosen_params}).T
             resulting_df = pd.concat([resulting_df, ser], ignore_index=True)
 
             print('Time taken:', round_to_n(time.time() - start_time, n = 3), 'seconds')
 
             print(resulting_df)
-            resulting_df.to_csv('search_results/random_search.csv')
+            resulting_df.to_csv(filename)
         except RuntimeError as e:
             print(e)
 

@@ -22,6 +22,6 @@ n_epochs = 10
 print_step = max(n_epochs // 10, 1)
 lr = 1e-4
 
-
+ignore_time = True
 dummy_batch_size = 128
 

@@ -58,12 +58,12 @@ def pretrain_generator(G, train, batch_size, vocab_size, sequence_length, n_epoc
                 % (e, n_epochs, loss_total / count)
             )
 
-def train_GAN(G, D, train, val, ENDPOINT, batch_size, vocab_size, sequence_length, n_epochs, lr, temperature, print_step = 10, score_fn = get_scores, dummy_batch_size = 128):    
+def train_GAN(G, D, train, val, ENDPOINT, batch_size, vocab_size, sequence_length, n_epochs, lr, temperature, print_step = 10, score_fn = get_scores, ignore_time = True, dummy_batch_size = 128):    
     scores = []
     accuracies_real = []
     accuracies_fake = []
     
-    score = score_fn(G, ENDPOINT, val, dummy_batch_size, True, True, vocab_size, sequence_length)
+    score = score_fn(G, ENDPOINT, val, dummy_batch_size, ignore_time, True, True, vocab_size, sequence_length)
     print('Scores before training:', *score)
     scores.append(score)
     
@@ -71,7 +71,7 @@ def train_GAN(G, D, train, val, ENDPOINT, batch_size, vocab_size, sequence_lengt
     pretrain_generator(G, train, batch_size, vocab_size, sequence_length, max(n_epochs // 10, 1), lr * 100, print_step = max(n_epochs // 10 - 1, 1))
     print('pretraining complete')
     
-    score = score_fn(G, ENDPOINT, val, dummy_batch_size, True, True, vocab_size, sequence_length)
+    score = score_fn(G, ENDPOINT, val, dummy_batch_size, ignore_time, True, True, vocab_size, sequence_length)
     print("[Scores:", *score, "]")
     scores.append(score)
     
@@ -144,13 +144,13 @@ def train_GAN(G, D, train, val, ENDPOINT, batch_size, vocab_size, sequence_lengt
                 "[Epoch %d/%d] [D loss: %f] [G loss: %f] [Acc real: %f] [Acc fake: %f]"
                 % (e, n_epochs, d_loss.item(), g_loss.item(), accuracy_real, accuracy_fake)
             )
-            score = score_fn(G, ENDPOINT, val, dummy_batch_size, True, True, vocab_size, sequence_length)
+            score = score_fn(G, ENDPOINT, val, dummy_batch_size, ignore_time, True, True, vocab_size, sequence_length)
             print("[Scores:", *score, "]")
             scores.append(score)
             accuracies_real.append(accuracy_real)
             accuracies_fake.append(accuracy_fake)
             
-    score = score_fn(G, ENDPOINT, val, dummy_batch_size, True, True, vocab_size, sequence_length)
+    score = score_fn(G, ENDPOINT, val, dummy_batch_size, ignore_time, True, True, vocab_size, sequence_length)
     print('Scores after training:', *score)
     scores.append(score)
             
