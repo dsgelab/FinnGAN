@@ -39,20 +39,20 @@ def random_search(n_runs):
     mem_slots = np.arange(1, 21)
     head_size = np.arange(1, 21)
     embed_size = np.arange(2, 21) # Same for the discriminator
-    temperature = np.arange(1, 100)
+    temperature = np.arange(10, 100)
     num_heads = np.arange(1, 21)
     num_blocks = np.arange(1, 21)
 
     # Discriminator params
     n_embeddings = np.arange(1, vocab_size + 1)
-    out_channels = np.arange(1, 21)
+    out_channels = np.arange(5, 21)
     num_filters = np.arange(1, sequence_length - 1)
 
     # Training params
-    batch_size = np.arange(32, 256)
+    batch_size = np.arange(32, 128)
     n_epochs = 10
     print_step = max(n_epochs // 10, 1)
-    lr = np.arange(2, 8)
+    lr = np.arange(4, 8)
     
     params = dict()
     
