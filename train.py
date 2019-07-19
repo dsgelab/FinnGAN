@@ -131,7 +131,7 @@ def train_GAN(G, D, train, val, ENDPOINT, batch_size, vocab_size, sequence_lengt
             accuracy_real = torch.mean(D_out_real)
             accuracy_fake = torch.mean(1 - D_out_fake)
             
-            real_loss = criterionD(D_out_real, valid)
+            real_loss = criterionD(D_out_real, valid * 0.9) # one-sided label smoothing
             fake_loss = criterionD(D_out_fake, fake)
             d_loss = (real_loss + fake_loss) / 2
 
