@@ -59,7 +59,7 @@ def main():
     save_frequency_comparisons(G, train, val, dummy_batch_size, vocab_size, sequence_length, ENDPOINT, prefix, N_max)
 
     # Call train function
-    scores1, scores2_mean, scores2_max, scores2, accuracies_real, accuracies_fake = train_GAN(
+    scores1, scores2_mean, similarity_score, indv_score_mean, scores2, indv_score, accuracies_real, accuracies_fake = train_GAN(
         G, D, train, val, ENDPOINT, batch_size, vocab_size, sequence_length, n_epochs, lr, temperature, print_step, get_scores, ignore_time, dummy_batch_size
     )
 
@@ -70,7 +70,7 @@ def main():
 
     print('Time taken:', round_to_n(time.time() - start_time, n = 3), 'seconds')
 
-    save_plots_of_train_scores(scores1, scores2_mean, scores2_max, scores2, accuracies_real, accuracies_fake, ignore_time, sequence_length, vocab_size, ENDPOINT)
+    save_plots_of_train_scores(scores1, scores2_mean, similarity_score, indv_score_mean, scores2, indv_score, accuracies_real, accuracies_fake, ignore_time, sequence_length, vocab_size, ENDPOINT)
 
 
     test_size = 10

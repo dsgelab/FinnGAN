@@ -161,8 +161,36 @@ def get_transition_matrix(data, vocab_size, d = 1, ignore_time = False, eps = 1e
 
 
 
+
 # Define generator evaluation functions
 
+def get_real_and_fake_data(G, dataset, batch_size, sequence_length):
+    iterator = Iterator(dataset, batch_size = batch_size)
+    
+    if cuda:
+        G.cuda()
+    
+    data = []
+    data_fake = []
+    
+    for batch in iterator:
+        data_tmp = batch.ENDPOINT.transpose(0, 1)
+        data.append(data_tmp)
+
+        start_tokens = data_tmp[:, :1]
+
+        if cuda:
+            start_tokens = start_tokens.cuda()
+
+        _, data_fake_tmp, _ = G(start_tokens, batch.AGE, batch.SEX.view(-1), None, sequence_length)
+        
+        data_fake.append(data_fake_tmp.cpu())
+    
+    data = torch.cat(data)
+    data_fake = torch.cat(data_fake)
+
+    return data, data_fake
+    
 def chi_sqrd_dist(counts1, counts2, separate = False, eps = 1e-20):
     counts1 = counts1.view(1, -1)
     counts2 = counts2.view(1, -1)
@@ -185,71 +213,16 @@ def chi_sqrd_dist(counts1, counts2, separate = False, eps = 1e-20):
     chi_sqrd_distance = torch.sum(diffs_sqrd_norm)
     
     return chi_sqrd_distance
-
-def get_fake_distribution(G, dataset, batch_size, vocab_size, sequence_length):
-    iterator = Iterator(dataset, batch_size = batch_size)
     
-    if cuda:
-        G.cuda()
-    
-    data_fake = []
-    
-    for batch in iterator:
-        data_tmp = batch.ENDPOINT.transpose(0, 1)
-
-        start_tokens = data_tmp[:, :1]
-        #memory = G.initial_state(batch_size = start_tokens.shape[0])
-
-        if cuda:
-            start_tokens = start_tokens.cuda()
-            #memory = memory.cuda()
-
-        _, data_fake_tmp, _ = G(start_tokens, batch.AGE, batch.SEX.view(-1), None, sequence_length)
-        
-        data_fake.append(data_fake_tmp.cpu())
-    
-    data_fake = torch.cat(data_fake)
-    
-    counts_fake, freqs_fake = get_distribution(data_fake, None, vocab_size, fake = True)
-    
-    return counts_fake, freqs_fake
-    
-def get_score(G, ENDPOINT, dataset, batch_size, vocab_size, sequence_length):
+def get_score(data_fake, ENDPOINT, vocab_size):
     counts_real, freqs_real = get_distribution(None, ENDPOINT, vocab_size, fake = False)
     
-    counts_fake, freqs_fake = get_fake_distribution(G, dataset, batch_size, vocab_size, sequence_length)
+    counts_fake, freqs_fake = get_distribution(data_fake, None, vocab_size, fake = True)
     
     score = chi_sqrd_dist(counts_real, counts_fake)
     return score
 
-def get_transition_score(G, dataset, batch_size, d, ignore_time, separate, vocab_size, sequence_length):
-    iterator = Iterator(dataset, batch_size = batch_size)
-    
-    if cuda:
-        G.cuda()
-    
-    data = []
-    data_fake = []
-    
-    for batch in iterator:
-        data_tmp = batch.ENDPOINT.transpose(0, 1)
-        data.append(data_tmp)
-
-        start_tokens = data_tmp[:, :1]
-        #memory = G.initial_state(batch_size = start_tokens.shape[0])
-
-        if cuda:
-            start_tokens = start_tokens.cuda()
-            #memory = memory.cuda()
-
-        _, data_fake_tmp, _ = G(start_tokens, batch.AGE, batch.SEX.view(-1), None, sequence_length)
-        
-        data_fake.append(data_fake_tmp.cpu())
-    
-    
-    data = torch.cat(data)
-    data_fake = torch.cat(data_fake)
-    
+def get_transition_score(data, data_fake, d, ignore_time, separate, vocab_size):
     transition_count_real, transition_freq_real = get_transition_matrix(data, vocab_size, d, ignore_time)
     transition_count_fake, transition_freq_fake = get_transition_matrix(data_fake, vocab_size, d, ignore_time)
     
@@ -277,26 +250,69 @@ def get_transition_score(G, dataset, batch_size, d, ignore_time, separate, vocab
             return chi_sqrd_ds
 
         return torch.mean(chi_sqrd_ds)
-
     
-def get_aggregate_transition_score(G, dataset, batch_size, ignore_time, separate1, separate2, vocab_size, sequence_length):
+def get_aggregate_transition_score(data, data_fake, ignore_time, separate1, separate2, vocab_size, sequence_length):
     if ignore_time:
-        result = get_transition_score(G, dataset, batch_size, None, True, separate1, vocab_size, sequence_length)
+        result = get_transition_score(data, data_fake, None, True, separate1, vocab_size)
     else:
         scores = []
         for d in range(1, sequence_length):
-            transition_score = get_transition_score(G, dataset, batch_size, d, False, separate1, vocab_size, sequence_length)
+            transition_score = get_transition_score(data, data_fake, d, False, separate1, vocab_size)
             scores.append(transition_score)
 
         result = torch.stack(scores)
-    
+
     if separate2:
         return result
-    
+
     if separate1:
         return torch.mean(result, dim = 0)
     else:
         return torch.mean(result)
+    
+def get_similarity_score(data, data_fake, separate):
+    n = data.shape[0]
+    res = torch.zeros(n, n)
+    
+    for i in range(n):
+        res[:, i] = (data == data_fake[i]).all(dim = 1)
+        
+    res = res.byte().any(dim = 1).float()
+    
+    if separate:
+        return res
+            
+    return res.mean()
+    
+    
+def get_individual_distribution(data, vocab_size, sequence_length):
+    individual_counts = torch.zeros(vocab_size - 3, sequence_length + 1)
+    
+    for indv in data:
+        for v in range(3, vocab_size):
+            count = torch.sum(indv == v)
+            individual_counts[v - 3, count] += 1
+            
+    individual_freqs = (individual_counts.transpose(0, 1) / torch.sum(individual_counts, dim = 1)).transpose(0, 1)
+    
+    return individual_counts, individual_freqs
+
+
+def get_individual_score(data, data_fake, separate, vocab_size, sequence_length):
+    individual_counts_real, individual_freqs_real = get_individual_distribution(data, vocab_size, sequence_length)
+    
+    individual_counts_fake, individual_freqs_fake = get_individual_distribution(data_fake, vocab_size, sequence_length)
+    
+    individual_scores = torch.zeros(individual_counts_real.shape[0])
+    
+    for i in range(individual_counts_real.shape[0]):
+        individual_scores[i] = chi_sqrd_dist(individual_counts_fake[i, :], individual_counts_real[i, :])
+        
+    if separate:
+        return individual_scores
+    
+    return individual_scores.mean()
+
 
 
 
@@ -348,14 +364,21 @@ def save_relative_and_absolute(freqs, freqs_fake, counts, counts_fake, vocab_siz
         title = prefix + 'Largest relative differences in frequencies'
         save_grouped_barplot(freqs, freqs_fake, idx, field, title, N)
 
-# Define the training function
 
-def get_scores(G, ENDPOINT, dataset, batch_size, ignore_time, separate1, separate2, vocab_size, sequence_length):
-    score1 = get_score(G, ENDPOINT, dataset, batch_size, vocab_size, sequence_length)
+def get_scores(G, ENDPOINT, train, val, batch_size, ignore_time, separate1, separate2, vocab_size, sequence_length):
+    data, data_fake = get_real_and_fake_data(G, val, batch_size, sequence_length)
+    data_train, data_fake_train = get_real_and_fake_data(G, train, batch_size, sequence_length)
+
+    score1 = get_score(data_fake, ENDPOINT, vocab_size)
     
-    score2 = get_aggregate_transition_score(G, dataset, batch_size, ignore_time, separate1, separate2, vocab_size, sequence_length)
+    score2 = get_aggregate_transition_score(data, data_fake, ignore_time, separate1, separate2, vocab_size, sequence_length)
     
-    return score1, score2.mean(), score2.max(), score2
+    similarity_score = get_similarity_score(data_train, data_fake_train, False)
+    
+    indv_score = get_individual_score(data, data_fake, separate1, vocab_size, sequence_length)
+    
+    return score1, score2.mean(), similarity_score, indv_score.mean(), score2, indv_score
+
 
 def get_dataset(nrows = 3_000_000):
     filename = 'data/FINNGEN_ENDPOINTS_DF3_longitudinal_V1_for_SandBox.txt.gz'
@@ -407,7 +430,7 @@ def get_dataset(nrows = 3_000_000):
     
     return train, val, ENDPOINT, AGE, SEX, vocab_size, sequence_length, n_individuals
 
-def save_plots_of_train_scores(scores1, scores2_mean, scores2_max, scores2, accuracies_real, accuracies_fake, ignore_time, sequence_length, vocab_size, ENDPOINT):
+def save_plots_of_train_scores(scores1, scores2_mean, similarity_score, indv_score_mean, scores2, indv_score, accuracies_real, accuracies_fake, ignore_time, sequence_length, vocab_size, ENDPOINT):
     plt.plot(range(scores1.shape[0]), scores1.numpy())
     plt.ylabel('Chi-Squared Distance of frequencies')
     plt.xlabel('Epoch')
@@ -420,10 +443,16 @@ def save_plots_of_train_scores(scores1, scores2_mean, scores2_max, scores2, accu
     plt.savefig('figs/mean_transition_score.svg')
     plt.clf()
 
-    plt.plot(range(scores2_max.shape[0]), scores2_max.numpy())
+    plt.plot(range(similarity_score.shape[0]), similarity_score.numpy())
     plt.ylabel('Mean transition score')
     plt.xlabel('Epoch')
-    plt.savefig('figs/max_transition_score.svg')
+    plt.savefig('figs/similarity_score.svg')
+    plt.clf()
+    
+    plt.plot(range(indv_score_mean.shape[0]), indv_score_mean.numpy())
+    plt.ylabel('Mean transition score')
+    plt.xlabel('Epoch')
+    plt.savefig('figs/mean_indv_score.svg')
     plt.clf()
 
     plt.plot(range(accuracies_real.shape[0]), accuracies_real.detach().cpu().numpy())
@@ -432,11 +461,18 @@ def save_plots_of_train_scores(scores1, scores2_mean, scores2_max, scores2, accu
     plt.savefig('figs/accuracy_real.svg')
     plt.clf()
 
-
     plt.plot(range(accuracies_fake.shape[0]), accuracies_fake.detach().cpu().numpy())
     plt.ylabel('Accuracy fake')
     plt.xlabel('Epoch')
     plt.savefig('figs/accuracy_fake.svg')
+    plt.clf()
+    
+    plt.plot(range(indv_score.shape[0]), indv_score.numpy())
+    plt.ylabel('Individual score')
+    plt.xlabel('Epoch')
+    labels = ['endpoint=' + ENDPOINT.vocab.itos[i] for i in range(3, vocab_size)]
+    plt.legend(labels)
+    plt.savefig('figs/indv_score.svg')
     plt.clf()
 
     if ignore_time:
@@ -511,9 +547,11 @@ def visualize_output(G, size, dataset, sequence_length, ENDPOINT, SEX):
     plot_data(data_fake, batch.AGE.view(-1), batch.SEX.view(-1), ENDPOINT, SEX, N=size, save=True, filename='figs/catheat_fake.svg')
     
 def save_frequency_comparisons(G, train, val, dummy_batch_size, vocab_size, sequence_length, ENDPOINT, prefix, N_max):
+    _, data_fake1 = get_real_and_fake_data(G, train, batch_size, sequence_length)
+    _, data_fake2 = get_real_and_fake_data(G, val, batch_size, sequence_length)
     
-    counts_fake1, _ = get_fake_distribution(G, val, dummy_batch_size, vocab_size, sequence_length)
-    counts_fake2, _ = get_fake_distribution(G, train, dummy_batch_size, vocab_size, sequence_length)
+    counts_fake1, _ = get_distribution(data_fake1, None, vocab_size, fake = True)
+    counts_fake2, _ = get_distribution(data_fake2, None, vocab_size, fake = True)
 
     counts_fake = counts_fake1 + counts_fake2
     freqs_fake = counts_fake / torch.sum(counts_fake)

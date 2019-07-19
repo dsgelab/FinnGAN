@@ -39,20 +39,20 @@ def random_search(n_runs):
     mem_slots = np.arange(1, 21)
     head_size = np.arange(1, 21)
     embed_size = np.arange(2, 21) # Same for the discriminator
-    temperature = np.arange(10, 100)
+    temperature = np.arange(1, 100)
     num_heads = np.arange(1, 21)
     num_blocks = np.arange(1, 21)
 
     # Discriminator params
     n_embeddings = np.arange(1, vocab_size + 1)
-    out_channels = np.arange(5, 21)
+    out_channels = np.arange(1, 21)
     num_filters = np.arange(1, sequence_length - 1)
 
     # Training params
-    batch_size = np.arange(32, 128)
+    batch_size = np.arange(32, 256)
     n_epochs = 10
     print_step = max(n_epochs // 10, 1)
-    lr = np.arange(4, 8)
+    lr = np.arange(2, 8)
     
     params = dict()
     
@@ -116,12 +116,14 @@ def random_search(n_runs):
             '''
 
             # Call train function
-            scores1, scores2_mean, scores2_max, scores2, accuracies_real, accuracies_fake = train_GAN(
+            scores1, scores2_mean, similarity_score, indv_score_mean, scores2, indv_score, accuracies_real, accuracies_fake = train_GAN(
                 G, D, train, val, ENDPOINT, batch_size, vocab_size, sequence_length, n_epochs, lr, temperature, print_step, get_scores, ignore_time, dummy_batch_size
             )
 
             chosen_params['chi-squared_score'] = float(scores1[-1])
             chosen_params['transition_score'] = float(scores2_mean[-1])
+            chosen_params['similarity_score'] = float(similarity_score[-1])
+            chosen_params['indv_score'] = float(indv_score_mean[-1])
             ser = pd.DataFrame({len(resulting_df): chosen_params}).T
             resulting_df = pd.concat([resulting_df, ser], ignore_index=True)
 
@@ -134,6 +136,6 @@ def random_search(n_runs):
 
 
 if __name__ == '__main__':
-    n_runs = 60
+    n_runs = 600
     #with torch.autograd.detect_anomaly():
     random_search(n_runs)
