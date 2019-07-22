@@ -22,6 +22,10 @@ from discriminator import RelGANDiscriminator
 from utils import *
 from train import pretrain_generator, train_GAN
 
+from bayes_opt import BayesianOptimization
+from bayes_opt.observer import JSONLogger
+from bayes_opt.event import Events
+
 cuda = torch.cuda.is_available()
 
 # Try setting the device to a GPU
@@ -134,8 +138,131 @@ def random_search(n_runs):
         except RuntimeError as e:
             print(e)
 
+            
+def fix_optim_log(filename):
+    res = []
+    with open(filename) as f:
+        content = f.read()
+        for iteration in content.split('\n'):
+            try:
+                obj = json.loads(iteration)
+                res.append(obj)
+            except json.JSONDecodeError:
+                pass
+            
+    with open(filename, 'w') as outfile:
+        json.dump(res, outfile)
+    
 
+def optimise(kappa = 1, n_sub_runs = 3):
+    n_epochs = 10
+    print_step = max(n_epochs // 5, 1)
+    
+    train, val, ENDPOINT, AGE, SEX, vocab_size, sequence_length, n_individuals = get_dataset(nrows = 30_000_000)
+    
+    print('Data loaded, number of individuals:', n_individuals)
+    
+    def objective_function(batch_size,
+                       embed_size,
+                       head_size,
+                       lr, # float
+                       mem_slots,
+                       n_embeddings,
+                       num_blocks,
+                       num_filters,
+                       num_heads,
+                       out_channels,
+                       temperature): # float
+        
+        try:
+            batch_size = int(batch_size)
+            embed_size = int(embed_size)
+            head_size = int(head_size)
+            mem_slots = int(mem_slots)
+            n_embeddings = int(n_embeddings)
+            num_blocks = int(num_blocks)
+            num_filters = int(num_filters)
+            num_heads = int(num_heads)
+            out_channels = int(out_channels)
+
+            filter_sizes = list(range(2, 2 + num_filters)) # values can be at most the sequence_length
+
+            dummy_batch_size = 128
+            ignore_time = True
+            
+            scores = []
+            
+            for i in range(n_sub_runs):
+                print('sub run {}'.format(i))
+                
+                # Train the GAN
+
+                G = RelationalMemoryGenerator(mem_slots, head_size, embed_size, vocab_size, temperature, num_heads, num_blocks)
+                D = RelGANDiscriminator(n_embeddings, vocab_size, embed_size, sequence_length, out_channels, filter_sizes)
+
+                # Call train function
+                chi_squared_score, transition_score, similarity_score, indv_score, _, _, _, _ = train_GAN(
+                    G, D, train, val, ENDPOINT, batch_size, vocab_size, sequence_length, n_epochs, lr, temperature, print_step, get_scores, ignore_time, dummy_batch_size
+                )
+
+                score = -(chi_squared_score[-1] / chi_squared_score_mad + \
+                          transition_score[-1] / transition_score_mad + \
+                          similarity_score[-1] / similarity_score_mad + \
+                          indv_score[-1] / indv_score_mad)
+                
+                scores.append(score)
+                
+            score = np.mean(scores)
+            print('Score:', score)
+
+            return score
+    
+        except RuntimeError as e:
+            print(e)
+            return -100
+    
+    # Bounded region of parameter space
+    pbounds = {
+        'batch_size': (16, 256),
+        'embed_size': (2, vocab_size + 1),
+        'head_size': (1, 21),
+        'lr': (1e-8, 1.0),
+        'mem_slots': (1, 21),
+        'n_embeddings': (1, 21),
+        'num_blocks': (1, 21),
+        'num_filters': (1, sequence_length - 1),
+        'num_heads': (1, 21),
+        'out_channels': (1, 21),
+        'temperature': (1, 1000),
+    }
+
+    optimizer = BayesianOptimization(
+        f = objective_function,
+        pbounds = pbounds,
+        random_state = 1,
+    )
+    
+    filename = "optim_results/optim_{}.json".format(n_individuals)
+    
+    logger = JSONLogger(path=filename)
+    optimizer.subscribe(Events.OPTMIZATION_STEP, logger)        
+        
+    optimizer.maximize(
+        init_points=2,
+        n_iter=3,
+    )
+    
+    fix_optim_log(filename)
+    
+    print(optimizer.max)
+            
+            
 if __name__ == '__main__':
-    n_runs = 600
+    #n_runs = 600
     #with torch.autograd.detect_anomaly():
-    random_search(n_runs)
+    #random_search(n_runs)
+    
+    kappa = 1
+    n_sub_runs = 3
+    
+    optimise(kappa, n_sub_runs)
