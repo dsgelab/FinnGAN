@@ -31,15 +31,15 @@ print('Device:', device)
 Tensor = torch.cuda.FloatTensor if cuda else torch.FloatTensor
 
 def random_search(n_runs):
-    train, val, ENDPOINT, AGE, SEX, vocab_size, sequence_length, n_individuals = get_dataset(nrows = 30_000_000)
+    train, val, ENDPOINT, AGE, SEX, vocab_size, sequence_length, n_individuals = get_dataset(nrows = 35_000_000)
 
     print('Data loaded, number of individuals:', n_individuals)
     
     # Generator params
     mem_slots = np.arange(1, 21)
     head_size = np.arange(1, 21)
-    embed_size = np.arange(2, 21) # Same for the discriminator
-    temperature = np.arange(1, 100)
+    embed_size = np.arange(2, vocab_size + 1) # Same for the discriminator
+    temperature = np.arange(1, 50)
     num_heads = np.arange(1, 21)
     num_blocks = np.arange(1, 21)
 
@@ -49,10 +49,10 @@ def random_search(n_runs):
     num_filters = np.arange(1, sequence_length - 1)
 
     # Training params
-    batch_size = np.arange(32, 256)
+    batch_size = np.arange(32, 200)
     n_epochs = 10
     print_step = max(n_epochs // 10, 1)
-    lr = np.arange(2, 8)
+    lr = np.arange(4, 8)
     
     params = dict()
     
