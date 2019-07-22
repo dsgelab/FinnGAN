@@ -10,3 +10,4 @@ DIAGNOSES_ICD.csv.gz
 data/
 figs/
 search_results/
+optim_results/
