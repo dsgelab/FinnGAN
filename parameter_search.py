@@ -165,7 +165,7 @@ def optimise(kappa, n_runs, n_sub_runs):
     def objective_function(batch_size,
                        embed_size,
                        head_size,
-                       lr, # float
+                       lr,
                        mem_slots,
                        n_embeddings,
                        num_blocks,
@@ -178,6 +178,7 @@ def optimise(kappa, n_runs, n_sub_runs):
             batch_size = int(batch_size)
             embed_size = int(embed_size)
             head_size = int(head_size)
+            lr = int(lr)
             mem_slots = int(mem_slots)
             n_embeddings = int(n_embeddings)
             num_blocks = int(num_blocks)
@@ -186,6 +187,7 @@ def optimise(kappa, n_runs, n_sub_runs):
             out_channels = int(out_channels)
 
             filter_sizes = list(range(2, 2 + num_filters)) # values can be at most the sequence_length
+            lr = 10 ** (-lr)
 
             dummy_batch_size = 128
             ignore_time = True
@@ -227,7 +229,7 @@ def optimise(kappa, n_runs, n_sub_runs):
         'batch_size': (16, 256),
         'embed_size': (2, vocab_size + 1),
         'head_size': (1, 21),
-        'lr': (1e-8, 0.05),
+        'lr': (3, 8),
         'mem_slots': (1, 21),
         'n_embeddings': (1, 21),
         'num_blocks': (1, 21),
@@ -264,7 +266,7 @@ if __name__ == '__main__':
     #random_search(n_runs)
     
     kappa = 1
-    n_runs = 10
+    n_runs = 100
     n_sub_runs = 3
     
     optimise(kappa, n_runs, n_sub_runs)
