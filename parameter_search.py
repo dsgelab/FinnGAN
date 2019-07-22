@@ -154,7 +154,7 @@ def fix_optim_log(filename):
         json.dump(res, outfile)
     
 
-def optimise(kappa = 1, n_sub_runs = 3):
+def optimise(kappa, n_runs, n_sub_runs):
     n_epochs = 10
     print_step = max(n_epochs // 5, 1)
     
@@ -248,8 +248,8 @@ def optimise(kappa = 1, n_sub_runs = 3):
     optimizer.subscribe(Events.OPTMIZATION_STEP, logger)        
         
     optimizer.maximize(
-        init_points=2,
-        n_iter=3,
+        init_points = int(np.sqrt(n_runs)),
+        n_iter = n_runs,
     )
     
     fix_optim_log(filename)
@@ -263,6 +263,7 @@ if __name__ == '__main__':
     #random_search(n_runs)
     
     kappa = 1
+    n_runs = 10
     n_sub_runs = 3
     
-    optimise(kappa, n_sub_runs)
+    optimise(kappa, n_runs, n_sub_runs)
