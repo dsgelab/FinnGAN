@@ -210,10 +210,11 @@ def optimise(kappa, n_runs, n_sub_runs):
                           similarity_score[-1] / similarity_score_mad + \
                           indv_score[-1] / indv_score_mad)
                 
+                print('Score:', score)
+                
                 scores.append(score)
                 
             score = np.mean(scores)
-            print('Score:', score)
 
             return score
     
@@ -226,7 +227,7 @@ def optimise(kappa, n_runs, n_sub_runs):
         'batch_size': (16, 256),
         'embed_size': (2, vocab_size + 1),
         'head_size': (1, 21),
-        'lr': (1e-8, 1.0),
+        'lr': (1e-8, 0.05),
         'mem_slots': (1, 21),
         'n_embeddings': (1, 21),
         'num_blocks': (1, 21),
