@@ -35,7 +35,7 @@ print('Device:', device)
 Tensor = torch.cuda.FloatTensor if cuda else torch.FloatTensor
 
 def random_search(n_runs):
-    train, val, ENDPOINT, AGE, SEX, vocab_size, sequence_length, n_individuals = get_dataset(nrows = 35_000_000)
+    train, val, ENDPOINT, AGE, SEX, vocab_size, sequence_length, n_individuals = get_dataset(nrows = 30_000_000)
 
     print('Data loaded, number of individuals:', n_individuals)
     
@@ -252,7 +252,7 @@ def optimise(kappa, n_runs, n_sub_runs, score_type = 'general'):
         random_state = 1,
     )
     
-    filename = "optim_results/optim_{}.json".format(n_individuals)
+    filename = "optim_results/{}_{}.json".format(score_type, n_individuals)
     
     logger = JSONLogger(path=filename)
     optimizer.subscribe(Events.OPTMIZATION_STEP, logger)        
@@ -262,7 +262,7 @@ def optimise(kappa, n_runs, n_sub_runs, score_type = 'general'):
         n_iter = n_runs,
     )
     
-    fix_optim_log(filename)
+    #fix_optim_log(filename)
     
     print(optimizer.max)
             
