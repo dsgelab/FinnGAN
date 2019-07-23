@@ -154,7 +154,7 @@ def fix_optim_log(filename):
         json.dump(res, outfile)
     
 
-def optimise(kappa, n_runs, n_sub_runs, score_type = 'general'):
+def optimise(kappa, n_runs, n_sub_runs, ignore_similar, score_type = 'general'):
     n_epochs = 10
     print_step = max(n_epochs // 5, 1)
     
@@ -204,20 +204,24 @@ def optimise(kappa, n_runs, n_sub_runs, score_type = 'general'):
 
                 # Call train function
                 chi_squared_score, transition_score, similarity_score, indv_score, transition_score_full, _, _, _ = train_GAN(
-                    G, D, train, val, ENDPOINT, batch_size, vocab_size, sequence_length, n_epochs, lr, temperature, print_step, get_scores, ignore_time, dummy_batch_size
+                    G, D, train, val, ENDPOINT, batch_size, vocab_size, sequence_length, n_epochs, lr, temperature, print_step, get_scores, ignore_time, dummy_batch_size, ignore_similar
                 )
                 
                 if score_type == 'general':
                     score = -(chi_squared_score[-1] / chi_squared_score_mad + \
                               transition_score[-1] / transition_score_mad + \
-                              similarity_score[-1] / similarity_score_mad + \
                               indv_score[-1] / indv_score_mad)
                 elif score_type == 'chd_and_br_cancer':
-                    # minimize the transition error from chd to breast cancer and overall similarity 
-                    score = -(transition_score_full[ \
+                    # minimize the transition score from chd to breast cancer
+                    score = -transition_score_full[ \
                                   -1, ENDPOINT.vocab.stoi['I9_CHD'] - 3, ENDPOINT.vocab.stoi['C3_BREAST'] - 3 \
-                              ] / transition_score_mad + \
-                              similarity_score[-1] / similarity_score_mad)
+                              ]
+                    
+                    if not ignore_similar:
+                        score /= transition_score_mad
+                    
+                if not ignore_similar:
+                    score -= similarity_score[-1] / similarity_score_mad
                 
                 print('Score:', score)
                 
@@ -275,6 +279,7 @@ if __name__ == '__main__':
     kappa = 1
     n_runs = 100
     n_sub_runs = 3
+    ignore_similar = True
     score_type = 'chd_and_br_cancer'
     
-    optimise(kappa, n_runs, n_sub_runs, score_type)
+    optimise(kappa, n_runs, n_sub_runs, ignore_similar, score_type)

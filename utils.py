@@ -164,7 +164,7 @@ def get_transition_matrix(data, vocab_size, d = 1, ignore_time = False, eps = 1e
 
 # Define generator evaluation functions
 
-def get_real_and_fake_data(G, dataset, batch_size, sequence_length):
+def get_real_and_fake_data(G, dataset, ignore_similar, batch_size, sequence_length):
     iterator = Iterator(dataset, batch_size = batch_size)
     
     if cuda:
@@ -188,6 +188,11 @@ def get_real_and_fake_data(G, dataset, batch_size, sequence_length):
     
     data = torch.cat(data)
     data_fake = torch.cat(data_fake)
+    
+    # Filter those fake samples out which have at least 1 exact match in the real data
+    if ignore_similar:
+        li = get_similarity_score(data_fake, data, True).byte()
+        data_fake = data_fake[~li, :]
 
     return data, data_fake
     
@@ -365,15 +370,19 @@ def save_relative_and_absolute(freqs, freqs_fake, counts, counts_fake, vocab_siz
         save_grouped_barplot(freqs, freqs_fake, idx, field, title, N)
 
 
-def get_scores(G, ENDPOINT, train, val, batch_size, ignore_time, separate1, separate2, vocab_size, sequence_length):
-    data, data_fake = get_real_and_fake_data(G, val, batch_size, sequence_length)
-    data_train, data_fake_train = get_real_and_fake_data(G, train, batch_size, sequence_length)
+def get_scores(G, ENDPOINT, train, val, batch_size, ignore_time, separate1, separate2, ignore_similar, vocab_size, sequence_length):
+    data, data_fake = get_real_and_fake_data(G, val, ignore_similar, batch_size, sequence_length)
+    data_train, data_fake_train = get_real_and_fake_data(G, train, ignore_similar, batch_size, sequence_length)
+    
+    if ignore_similar:
+        similarity_score = torch.tensor(1.0 - data_fake_train.shape[0] / data_train.shape[0])
+    else:
+        similarity_score = get_similarity_score(data_train, data_fake_train, False)
+        
 
     score1 = get_score(data_fake, ENDPOINT, vocab_size)
     
     score2 = get_aggregate_transition_score(data, data_fake, ignore_time, separate1, separate2, vocab_size, sequence_length)
-    
-    similarity_score = get_similarity_score(data_train, data_fake_train, False)
     
     indv_score = get_individual_score(data, data_fake, separate1, vocab_size, sequence_length)
     
@@ -547,8 +556,8 @@ def visualize_output(G, size, dataset, sequence_length, ENDPOINT, SEX):
     plot_data(data_fake, batch.AGE.view(-1), batch.SEX.view(-1), ENDPOINT, SEX, N=size, save=True, filename='figs/catheat_fake.svg')
     
 def save_frequency_comparisons(G, train, val, dummy_batch_size, vocab_size, sequence_length, ENDPOINT, prefix, N_max):
-    _, data_fake1 = get_real_and_fake_data(G, train, batch_size, sequence_length)
-    _, data_fake2 = get_real_and_fake_data(G, val, batch_size, sequence_length)
+    _, data_fake1 = get_real_and_fake_data(G, train, ignore_similar, batch_size, sequence_length)
+    _, data_fake2 = get_real_and_fake_data(G, val, ignore_similar, batch_size, sequence_length)
     
     counts_fake1, _ = get_distribution(data_fake1, None, vocab_size, fake = True)
     counts_fake2, _ = get_distribution(data_fake2, None, vocab_size, fake = True)

@@ -43,6 +43,8 @@ temperature = 11
 ignore_time = True
 dummy_batch_size = 128
 
+ignore_similar = True
+
 transition_score_mad = 0.539579
 chi_squared_score_mad = 0.814368
 indv_score_mad = 0.295352
