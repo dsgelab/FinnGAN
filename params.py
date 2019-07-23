@@ -22,7 +22,7 @@ n_epochs = 10
 print_step = max(n_epochs // 10, 1)
 lr = 1e-4
 
-
+'''
 batch_size = 96
 #chi-squared_score = 0.029918
 embed_size = 8
@@ -38,7 +38,7 @@ out_channels = 12
 #similarity_score = 0.077522
 temperature = 11
 #transition_score = 0.431095
-
+'''
 
 ignore_time = True
 dummy_batch_size = 128

@@ -444,13 +444,13 @@ def save_plots_of_train_scores(scores1, scores2_mean, similarity_score, indv_sco
     plt.clf()
 
     plt.plot(range(similarity_score.shape[0]), similarity_score.numpy())
-    plt.ylabel('Mean transition score')
+    plt.ylabel('Mean similarity score')
     plt.xlabel('Epoch')
     plt.savefig('figs/similarity_score.svg')
     plt.clf()
     
     plt.plot(range(indv_score_mean.shape[0]), indv_score_mean.numpy())
-    plt.ylabel('Mean transition score')
+    plt.ylabel('Mean individual score')
     plt.xlabel('Epoch')
     plt.savefig('figs/mean_indv_score.svg')
     plt.clf()

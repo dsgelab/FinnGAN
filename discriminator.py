@@ -68,11 +68,12 @@ class RelGANDiscriminator(nn.Module):
         hidden = self.hidden2(hidden) # [batch_size, self.n_embeddings, self.n_total_out_channels // 4 + 1]
         hidden = F.relu(hidden)
         
-        result = self.output_layer(hidden) # [batch_size, self.n_embeddings, 1]
-        result = torch.sigmoid(result)
+        critic = self.output_layer(hidden) # [batch_size, self.n_embeddings, 1]
+        critic = critic.squeeze(dim = -1) # [batch_size, self.n_embeddings]
         
-        result = result.squeeze(dim = -1) # [batch_size, self.n_embeddings]
+        result = torch.sigmoid(critic)
         
+        mean_critic = torch.mean(critic, dim = 1) # [batch_size, 1]
         mean_result = torch.mean(result, dim = 1) # [batch_size, 1]
         
         if return_mean:

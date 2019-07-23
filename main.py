@@ -75,6 +75,10 @@ def main():
 
     test_size = 10
     visualize_output(G, test_size, val, sequence_length, ENDPOINT, SEX)
+    
+    
+    filename = 'models/model.pt'
+    torch.save(G.state_dict(), filename)
 
 
 if __name__ == '__main__':
