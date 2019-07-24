@@ -33,7 +33,7 @@ Tensor = torch.cuda.FloatTensor if cuda else torch.FloatTensor
 
 def main():
     
-    train, val, ENDPOINT, AGE, SEX, vocab_size, sequence_length, n_individuals = get_dataset(nrows = 30_000_000)
+    train, val, ENDPOINT, AGE, SEX, vocab_size, sequence_length, n_individuals = get_dataset(nrows = 300_000_000)
     
     print('Data loaded, number of individuals:', n_individuals)
 
@@ -56,13 +56,17 @@ def main():
     N_max = 10
     prefix = 'Before:'
     
+    G.eval()
     save_frequency_comparisons(G, train, val, dummy_batch_size, vocab_size, sequence_length, ENDPOINT, prefix, N_max)
+    G.train()
 
     # Call train function
     scores1, scores2_mean, similarity_score, indv_score_mean, scores2, indv_score, accuracies_real, accuracies_fake = train_GAN(
         G, D, train, val, ENDPOINT, batch_size, vocab_size, sequence_length, n_epochs, lr, temperature, print_step, get_scores, ignore_time, dummy_batch_size, ignore_similar
     )
 
+    G.eval()
+    
     prefix = 'After:'
 
     save_frequency_comparisons(G, train, val, dummy_batch_size, vocab_size, sequence_length, ENDPOINT, prefix, N_max)
@@ -76,9 +80,7 @@ def main():
     test_size = 10
     visualize_output(G, test_size, val, sequence_length, ENDPOINT, SEX)
     
-    
-    filename = 'models/model.pt'
-    torch.save(G.state_dict(), filename)
+    torch.save(G.state_dict(), G_filename)
 
 
 if __name__ == '__main__':

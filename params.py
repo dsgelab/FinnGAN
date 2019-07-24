@@ -44,6 +44,8 @@ ignore_time = True
 dummy_batch_size = 128
 
 ignore_similar = True
+    
+G_filename = 'models/model.pt'
 
 transition_score_mad = 0.539579
 chi_squared_score_mad = 0.814368

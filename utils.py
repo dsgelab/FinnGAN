@@ -282,12 +282,13 @@ def get_similarity_score(data, data_fake, separate):
     for i in range(n):
         res[:, i] = (data == data_fake[i]).all(dim = 1)
         
-    res = res.byte().any(dim = 1).float()
+    res = res.byte()
+    res = res.any(dim = 1)
     
     if separate:
         return res
             
-    return res.mean()
+    return res.float().mean()
     
     
 def get_individual_distribution(data, vocab_size, sequence_length):
@@ -371,6 +372,9 @@ def save_relative_and_absolute(freqs, freqs_fake, counts, counts_fake, vocab_siz
 
 
 def get_scores(G, ENDPOINT, train, val, batch_size, ignore_time, separate1, separate2, ignore_similar, vocab_size, sequence_length):
+    
+    G.eval()
+    
     data, data_fake = get_real_and_fake_data(G, val, ignore_similar, batch_size, sequence_length)
     data_train, data_fake_train = get_real_and_fake_data(G, train, ignore_similar, batch_size, sequence_length)
     
@@ -385,6 +389,8 @@ def get_scores(G, ENDPOINT, train, val, batch_size, ignore_time, separate1, sepa
     score2 = get_aggregate_transition_score(data, data_fake, ignore_time, separate1, separate2, vocab_size, sequence_length)
     
     indv_score = get_individual_score(data, data_fake, separate1, vocab_size, sequence_length)
+    
+    G.train()
     
     return score1, score2.mean(), similarity_score, indv_score.mean(), score2, indv_score
 
