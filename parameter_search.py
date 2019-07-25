@@ -121,7 +121,7 @@ def random_search(n_runs):
 
             # Call train function
             scores1, scores2_mean, similarity_score, indv_score_mean, scores2, indv_score, accuracies_real, accuracies_fake = train_GAN(
-                G, D, train, val, ENDPOINT, batch_size, vocab_size, sequence_length, n_epochs, lr, temperature, print_step, get_scores, ignore_time, dummy_batch_size
+                G, D, train, val, ENDPOINT, batch_size, vocab_size, sequence_length, n_epochs, lr, temperature, GAN_type, print_step, get_scores, ignore_time, dummy_batch_size
             )
 
             chosen_params['chi-squared_score'] = float(scores1[-1])
@@ -154,7 +154,7 @@ def fix_optim_log(filename):
         json.dump(res, outfile)
     
 
-def optimise(kappa, n_runs, n_sub_runs, ignore_similar, score_type = 'general'):
+def optimise(kappa, n_runs, n_sub_runs, ignore_similar, GAN_type, score_type = 'general'):
     n_epochs = 10
     print_step = max(n_epochs // 5, 1)
     
@@ -204,7 +204,7 @@ def optimise(kappa, n_runs, n_sub_runs, ignore_similar, score_type = 'general'):
 
                 # Call train function
                 chi_squared_score, transition_score, similarity_score, indv_score, transition_score_full, _, _, _ = train_GAN(
-                    G, D, train, val, ENDPOINT, batch_size, vocab_size, sequence_length, n_epochs, lr, temperature, print_step, get_scores, ignore_time, dummy_batch_size, ignore_similar
+                    G, D, train, val, ENDPOINT, batch_size, vocab_size, sequence_length, n_epochs, lr, temperature, GAN_type, print_step, get_scores, ignore_time, dummy_batch_size, ignore_similar
                 )
                 
                 if score_type == 'general':
@@ -281,5 +281,6 @@ if __name__ == '__main__':
     n_sub_runs = 3
     ignore_similar = True
     score_type = 'chd_and_br_cancer'
+    GAN_type = 'least squares'
     
-    optimise(kappa, n_runs, n_sub_runs, ignore_similar, score_type)
+    optimise(kappa, n_runs, n_sub_runs, ignore_similar, GAN_type, score_type)

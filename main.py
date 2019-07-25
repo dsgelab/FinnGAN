@@ -22,6 +22,7 @@ from relational_rnn_models import RelationalMemoryGenerator
 from discriminator import RelGANDiscriminator
 from utils import *
 from train import pretrain_generator, train_GAN
+from survival_analysis import analyse
 
 cuda = torch.cuda.is_available()
 
@@ -33,9 +34,12 @@ Tensor = torch.cuda.FloatTensor if cuda else torch.FloatTensor
 
 def main():
     
-    train, val, ENDPOINT, AGE, SEX, vocab_size, sequence_length, n_individuals = get_dataset(nrows = 300_000_000)
+    nrows = 60_000_000
+    train, val, ENDPOINT, AGE, SEX, vocab_size, sequence_length, n_individuals = get_dataset(nrows = nrows)
     
     print('Data loaded, number of individuals:', n_individuals)
+    
+    print('GAN type:', GAN_type)
 
     # Train the GAN
 
@@ -62,7 +66,7 @@ def main():
 
     # Call train function
     scores1, scores2_mean, similarity_score, indv_score_mean, scores2, indv_score, accuracies_real, accuracies_fake = train_GAN(
-        G, D, train, val, ENDPOINT, batch_size, vocab_size, sequence_length, n_epochs, lr, temperature, print_step, get_scores, ignore_time, dummy_batch_size, ignore_similar
+        G, D, train, val, ENDPOINT, batch_size, vocab_size, sequence_length, n_epochs, lr, temperature, GAN_type, print_step, get_scores, ignore_time, dummy_batch_size, ignore_similar
     )
 
     G.eval()
@@ -81,6 +85,10 @@ def main():
     visualize_output(G, test_size, val, sequence_length, ENDPOINT, SEX)
     
     torch.save(G.state_dict(), G_filename)
+    
+    event_name = 'I9_CHD'
+    predictor_name = 'C3_BREAST'
+    analyse(nrows, event_name, predictor_name)
 
 
 if __name__ == '__main__':

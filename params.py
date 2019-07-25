@@ -44,6 +44,7 @@ ignore_time = True
 dummy_batch_size = 128
 
 ignore_similar = True
+GAN_type = 'wasserstein'
     
 G_filename = 'models/model.pt'
 

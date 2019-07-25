@@ -29,7 +29,7 @@ class RelGANDiscriminator(nn.Module):
         
         self.output_layer = nn.Linear(self.n_total_out_channels // 4 + 1, 1)
         
-    def forward(self, x, age, sex, return_mean = True, feature_matching = True):
+    def forward(self, x, age, sex, return_mean = True, feature_matching = False, return_critic = False):
         '''
             input:
                 x (torch.FloatTensor): onehot of size [batch_size, self.sequence_length, self.vocab_size]
@@ -64,6 +64,9 @@ class RelGANDiscriminator(nn.Module):
         hidden = self.hidden1(hidden) # [batch_size, self.n_embeddings, self.n_total_out_channels // 2 + 1]
         hidden = F.relu(hidden)
         features = hidden.view(hidden.shape[0], -1)
+            
+        if feature_matching:
+            return features
         
         hidden = self.hidden2(hidden) # [batch_size, self.n_embeddings, self.n_total_out_channels // 4 + 1]
         hidden = F.relu(hidden)
@@ -77,13 +80,16 @@ class RelGANDiscriminator(nn.Module):
         mean_result = torch.mean(result, dim = 1) # [batch_size, 1]
         
         if return_mean:
-            output = [mean_result]
+            if not return_critic:
+                output = mean_result
+            else:
+                output = mean_critic
         else:
-            output = [result]
+            if not return_critic:
+                output = result
+            else:
+                output = critic
             
-        if feature_matching:
-            output.append(features)
-            
-        return tuple(output) if feature_matching else output[0]
+        return output
     
     

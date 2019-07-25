@@ -3,6 +3,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 from utils import *
 from params import *
+from relational_rnn_models import RelationalMemoryGenerator
+from lifelines import CoxPHFitter
+import matplotlib.pyplot as plt
 
 def get_survival_analysis_input(data, ENDPOINT, event_name, predictor_name, sequence_length):
     event_i = ENDPOINT.vocab.stoi[event_name]
@@ -10,8 +13,12 @@ def get_survival_analysis_input(data, ENDPOINT, event_name, predictor_name, sequ
     
     col_idx = torch.arange(sequence_length)
     
-    start_times = []
-    end_times = []
+    n = data.shape[0]
+    start_times = np.zeros((n,))
+    end_times = np.zeros((n,))
+    
+    new_start_times = []
+    new_end_times = []
     
     predictors = (data == predictor_i).byte()
     events = (data == event_i).byte()
@@ -19,7 +26,10 @@ def get_survival_analysis_input(data, ENDPOINT, event_name, predictor_name, sequ
     preds = predictors.any(dim = 1)
     outcomes = events.any(dim = 1)
     
-    for i in range(data.shape[0]):
+    new_preds = []
+    new_outcomes = []
+    
+    for i in range(n):
         pred = predictors[i, :]
         event = events[i, :]
         
@@ -37,14 +47,29 @@ def get_survival_analysis_input(data, ENDPOINT, event_name, predictor_name, sequ
             start_time = 0
             preds[i] = False
             
-        start_times.append(int(start_time))
-        end_times.append(int(end_time))
+        if start_time > 0:
+            new_start_time = 0
+            new_end_time = start_time
+            
+            new_start_times.append(new_start_time)
+            new_end_times.append(new_end_time)
+            new_preds.append(False)
+            new_outcomes.append(False)
+            
+        start_times[i] = int(start_time)
+        end_times[i] = int(end_time)
         
+    start_times = np.concatenate([start_times, new_start_times])
+    end_times = np.concatenate([end_times, new_end_times])
+    
     start_times = pd.Series(start_times, name='start_time')
     end_times = pd.Series(end_times, name='end_time')
+    
+    preds = np.concatenate([preds.numpy(), new_preds])
+    outcomes = np.concatenate([outcomes.numpy(), new_outcomes])
         
-    preds = pd.Series(preds.numpy(), name='predictor')
-    outcomes = pd.Series(outcomes.numpy(), name='outcome')
+    preds = pd.Series(preds, name='predictor')
+    outcomes = pd.Series(outcomes, name='outcome')
     
     res = pd.DataFrame({
         'predictor': preds, 
@@ -56,38 +81,44 @@ def get_survival_analysis_input(data, ENDPOINT, event_name, predictor_name, sequ
     
 
 
-def analyse(event_name, predictor_name):
-    train, val, ENDPOINT, AGE, SEX, vocab_size, sequence_length, n_individuals = get_dataset(nrows = 30_000_000)
+def analyse(nrows, event_name, predictor_name):
+    train, val, ENDPOINT, AGE, SEX, vocab_size, sequence_length, n_individuals = get_dataset(nrows = nrows)
     print('Data loaded, number of individuals:', n_individuals)
     
     G = RelationalMemoryGenerator(mem_slots, head_size, embed_size, vocab_size, temperature, num_heads, num_blocks)
     G.load_state_dict(torch.load(G_filename))
     G.eval()
     
-    data, data_fake = get_real_and_fake_data(G, train, ignore_similar, dummy_batch_size, sequence_length)
+    data, data_fake = get_real_and_fake_data(G, train, False, dummy_batch_size, sequence_length)
     
     
     
+    print()
     print('REAL:')
     surv_inp = get_survival_analysis_input(data, ENDPOINT, event_name, predictor_name, sequence_length)
     
     cph = CoxPHFitter()
     cph.fit(surv_inp, duration_col='duration', event_col='outcome', show_progress=True)
     cph.print_summary()  # access the results using cph.summary
+    cph.check_assumptions(surv_inp, p_value_threshold=0.05, show_plots=False)
+    cph.plot_covariate_groups('predictor', [0, 1])
+    plt.savefig('figs/test_real.svg')
+    
+    
     print()
-
-    
-    
     print('FAKE:')
     surv_inp = get_survival_analysis_input(data_fake, ENDPOINT, event_name, predictor_name, sequence_length)
 
     cph = CoxPHFitter()
     cph.fit(surv_inp, duration_col='duration', event_col='outcome', show_progress=True)
     cph.print_summary()  # access the results using cph.summary
-    print()
+    cph.check_assumptions(surv_inp, p_value_threshold=0.05, show_plots=False)
+    cph.plot_covariate_groups('predictor', [0, 1])
+    plt.savefig('figs/test_fake.svg')
 
 
 if __name__ == '__main__':
+    nrows = 60_000_000
     event_name = 'I9_CHD'
     predictor_name = 'C3_BREAST'
-    analyse(event_name, predictor_name)
+    analyse(nrows, event_name, predictor_name)
