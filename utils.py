@@ -191,7 +191,7 @@ def get_real_and_fake_data(G, dataset, ignore_similar, batch_size, sequence_leng
     
     # Filter those fake samples out which have at least 1 exact match in the real data
     if ignore_similar:
-        li = get_similarity_score(data_fake, data, True).byte()
+        li = robust_get_similarity_score(data_fake, data, batch_size, True)
         data_fake = data_fake[~li, :]
 
     return data, data_fake
@@ -275,15 +275,30 @@ def get_aggregate_transition_score(data, data_fake, ignore_time, separate1, sepa
     else:
         return torch.mean(result)
     
-def get_similarity_score(data, data_fake, separate):
-    n = data.shape[0]
-    res = torch.zeros(n, n)
+def get_similarity_score(data1, data2, separate):
+    n = data1.shape[0]
+    m = data2.shape[0]
+    res = torch.zeros(n, m)
     
-    for i in range(n):
-        res[:, i] = (data == data_fake[i]).all(dim = 1)
+    for i in range(m):
+        res[:, i] = (data1 == data2[i]).all(dim = 1)
         
-    res = res.byte()
-    res = res.any(dim = 1)
+    res = res.byte().any(dim = 1)
+    
+    if separate:
+        return res
+            
+    return res.float().mean()
+
+def robust_get_similarity_score(data1, data2, batch_size, separate):
+    lis = []
+        
+    for i in range(0, data1.shape[0], batch_size):
+        data1_tmp = data1[i:i+batch_size, :]
+        li = get_similarity_score(data1_tmp, data2, True)
+        lis.append(li)
+        
+    res = torch.cat(lis)
     
     if separate:
         return res
@@ -381,7 +396,7 @@ def get_scores(G, ENDPOINT, train, val, batch_size, ignore_time, separate1, sepa
     if ignore_similar:
         similarity_score = torch.tensor(1.0 - data_fake_train.shape[0] / data_train.shape[0])
     else:
-        similarity_score = get_similarity_score(data_train, data_fake_train, False)
+        similarity_score = robust_get_similarity_score(data_train, data_fake_train, batch_size, False)
         
 
     score1 = get_score(data_fake, ENDPOINT, vocab_size)
@@ -446,43 +461,64 @@ def get_dataset(nrows = 3_000_000):
     return train, val, ENDPOINT, AGE, SEX, vocab_size, sequence_length, n_individuals
 
 def save_plots_of_train_scores(scores1, scores2_mean, similarity_score, indv_score_mean, scores2, indv_score, accuracies_real, accuracies_fake, ignore_time, sequence_length, vocab_size, ENDPOINT):
-    plt.plot(range(scores1.shape[0]), scores1.numpy())
+    y = scores1.numpy()
+    plt.plot(range(y.shape[0]), y)
+    if log10(np.max(y) / np.min(y)) > 1.5:
+        plt.yscale('log')
     plt.ylabel('Chi-Squared Distance of frequencies')
     plt.xlabel('Epoch')
     plt.savefig('figs/chisqrd_freqs.svg')
     plt.clf()
 
-    plt.plot(range(scores2_mean.shape[0]), scores2_mean.numpy())
+    y = scores2_mean.numpy()
+    plt.plot(range(y.shape[0]), y)
+    if log10(np.max(y) / np.min(y)) > 1.5:
+        plt.yscale('log')
     plt.ylabel('Mean transition score')
     plt.xlabel('Epoch')
     plt.savefig('figs/mean_transition_score.svg')
     plt.clf()
 
-    plt.plot(range(similarity_score.shape[0]), similarity_score.numpy())
+    y = similarity_score.numpy()
+    plt.plot(range(y.shape[0]), y)
+    if log10(np.max(y) / np.min(y)) > 1.5:
+        plt.yscale('log')
     plt.ylabel('Mean similarity score')
     plt.xlabel('Epoch')
     plt.savefig('figs/similarity_score.svg')
     plt.clf()
     
-    plt.plot(range(indv_score_mean.shape[0]), indv_score_mean.numpy())
+    y = indv_score_mean.numpy()
+    plt.plot(range(y.shape[0]), y)
+    if log10(np.max(y) / np.min(y)) > 1.5:
+        plt.yscale('log')
     plt.ylabel('Mean individual score')
     plt.xlabel('Epoch')
     plt.savefig('figs/mean_indv_score.svg')
     plt.clf()
 
-    plt.plot(range(accuracies_real.shape[0]), accuracies_real.detach().cpu().numpy())
+    y = accuracies_real.detach().cpu().numpy()
+    plt.plot(range(y.shape[0]), y)
+    if log10(np.max(y) / np.min(y)) > 1.5:
+        plt.yscale('log')
     plt.ylabel('Accuracy real')
     plt.xlabel('Epoch')
     plt.savefig('figs/accuracy_real.svg')
     plt.clf()
 
-    plt.plot(range(accuracies_fake.shape[0]), accuracies_fake.detach().cpu().numpy())
+    y = accuracies_fake.detach().cpu().numpy()
+    plt.plot(range(y.shape[0]), y)
+    if log10(np.max(y) / np.min(y)) > 1.5:
+        plt.yscale('log')
     plt.ylabel('Accuracy fake')
     plt.xlabel('Epoch')
     plt.savefig('figs/accuracy_fake.svg')
     plt.clf()
     
-    plt.plot(range(indv_score.shape[0]), indv_score.numpy())
+    y = indv_score.numpy()
+    plt.plot(range(y.shape[0]), y)
+    if log10(np.max(y) / np.min(y)) > 1.5:
+        plt.yscale('log')
     plt.ylabel('Individual score')
     plt.xlabel('Epoch')
     labels = ['endpoint=' + ENDPOINT.vocab.itos[i] for i in range(3, vocab_size)]
@@ -492,7 +528,10 @@ def save_plots_of_train_scores(scores1, scores2_mean, similarity_score, indv_sco
 
     if ignore_time:
         for v in range(3, vocab_size):
-            plt.plot(range(scores2.shape[0]), scores2[:, v - 3, :].numpy())
+            y = scores2[:, v - 3, :].numpy()
+            plt.plot(range(y.shape[0]), y)
+            if log10(np.max(y) / np.min(y)) > 1.5:
+                plt.yscale('log')
             plt.ylabel('Transition score')
             plt.xlabel('Epoch')
             title = 'enpoint=' + ENDPOINT.vocab.itos[v]
@@ -503,7 +542,10 @@ def save_plots_of_train_scores(scores1, scores2_mean, similarity_score, indv_sco
             plt.clf()
     else:
         for v in range(2, vocab_size):
-            plt.plot(range(scores3.shape[0]), scores3[:, :, v - 2].numpy())
+            y = scores3[:, :, v - 2].numpy()
+            plt.plot(range(y.shape[0]), y)
+            if log10(np.max(y) / np.min(y)) > 1.5:
+                plt.yscale('log')
             plt.ylabel('Transition score')
             plt.xlabel('Epoch')
             title = 'enpoint=' + ENDPOINT.vocab.itos[v]

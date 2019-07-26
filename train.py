@@ -80,14 +80,20 @@ def train_GAN(G, D, train, val, ENDPOINT, batch_size, vocab_size, sequence_lengt
     scores.append(score)
     
     if GAN_type == 'standard':
-        criterionG = criterionD = torch.nn.BCELoss()
+        if relativistic_average is None:
+            criterionG = criterionD = torch.nn.BCELoss()
+        else:
+            criterionG = criterionD = torch.nn.BCEWithLogitsLoss()
         
     elif GAN_type == 'least squares':
         criterionG = criterionD = torch.nn.MSELoss()
         
     elif GAN_type == 'feature matching':
         criterionG = torch.nn.MSELoss()
-        criterionD = torch.nn.BCELoss()
+        if relativistic_average is None:
+            criterionD = torch.nn.BCELoss()
+        else:
+            criterionD = torch.nn.BCEWithLogitsLoss()
         
     if GAN_type == 'wasserstein':
         optimizer_G = torch.optim.RMSprop(G.parameters(), lr=lr)
@@ -99,8 +105,9 @@ def train_GAN(G, D, train, val, ENDPOINT, batch_size, vocab_size, sequence_lengt
     if cuda:
         G.cuda()
         D.cuda()
-        criterionD.cuda()
-        criterionG.cuda()
+        if GAN_type != 'wasserstein':
+            criterionD.cuda()
+            criterionG.cuda()
     
     for e in range(n_epochs):
         train_iter = Iterator(train, batch_size = batch_size, device = device)
@@ -147,20 +154,18 @@ def train_GAN(G, D, train, val, ENDPOINT, batch_size, vocab_size, sequence_lengt
             elif GAN_type in ['standard', 'least squares']:
                 if relativistic_average is None:
                     g_loss = criterionG(D_out_fake, valid)
+                elif relativistic_average:
+                    g_loss = criterionG(D_out_fake - D_out_real.mean(0, keepdim=True), valid)
                 else:
-                    if relativistic_average:
-                        g_loss = criterionG(D_out_fake - D_out_real.mean(0, keepdim=True), valid)
-                    else:
-                        g_loss = criterionG(D_out_fake - D_out_real, valid)
+                    g_loss = criterionG(D_out_fake - D_out_real, valid)
                     
             elif GAN_type == 'wasserstein':
                 if relativistic_average is None:
                     g_loss = -torch.mean(D_out_fake)
+                elif relativistic_average:
+                    g_loss = -torch.mean(D_out_fake - D_out_real.mean(0, keepdim=True))
                 else:
-                    if relativistic_average:
-                        g_loss = -torch.mean(D_out_fake - D_out_real.mean(0, keepdim=True))
-                    else:
-                        g_loss = -torch.mean(D_out_fake - D_out_real)
+                    g_loss = -torch.mean(D_out_fake - D_out_real)
 
             g_loss.backward()
             optimizer_G.step()
@@ -183,26 +188,25 @@ def train_GAN(G, D, train, val, ENDPOINT, batch_size, vocab_size, sequence_lengt
                 accuracy_real = torch.mean(D_out_real)
                 accuracy_fake = torch.mean(1 - D_out_fake)
             
+            
             if GAN_type == 'wasserstein':
                 if relativistic_average is None:
                     d_loss = -torch.mean(D_out_real) + torch.mean(D_out_fake)
+                elif relativistic_average:
+                    d_loss = -torch.mean(D_out_real - D_out_fake.mean(0, keepdim=True)) + torch.mean(D_out_fake - D_out_real.mean(0, keepdim=True))
                 else:
-                    if relativistic_average:
-                        d_loss = -torch.mean(D_out_real - D_out_fake.mean(0, keepdim=True)) + torch.mean(D_out_fake - D_out_real.mean(0, keepdim=True))
-                    else:
-                        d_loss = -torch.mean(D_out_real - D_out_fake) + torch.mean(D_out_fake - D_out_real)
+                    d_loss = -torch.mean(D_out_real - D_out_fake) + torch.mean(D_out_fake - D_out_real)
                 
             else:
                 if relativistic_average is None:
                     real_loss = criterionD(D_out_real, valid)
                     fake_loss = criterionD(D_out_fake, fake)
+                elif relativistic_average:
+                    real_loss = criterionD(D_out_real - D_out_fake.mean(0, keepdim=True), valid)
+                    fake_loss = criterionD(D_out_fake - D_out_real.mean(0, keepdim=True), fake)
                 else:
-                    if relativistic_average:
-                        real_loss = criterionD(D_out_real - D_out_fake.mean(0, keepdim=True), valid)
-                        fake_loss = criterionD(D_out_fake - D_out_real.mean(0, keepdim=True), fake)
-                    else:
-                        real_loss = criterionD(D_out_real - D_out_fake, valid)
-                        fake_loss = criterionD(D_out_fake - D_out_real, fake)
+                    real_loss = criterionD(D_out_real - D_out_fake, valid)
+                    fake_loss = criterionD(D_out_fake - D_out_real, fake)
                 d_loss = (real_loss + fake_loss) * 0.5
 
             d_loss.backward()

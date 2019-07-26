@@ -154,11 +154,14 @@ def fix_optim_log(filename):
         json.dump(res, outfile)
     
 
-def optimise(kappa, n_runs, n_sub_runs, ignore_similar, GAN_type, score_type = 'general'):
+def optimise(kappa, n_runs, n_sub_runs, ignore_similar, score_type = 'general'):
     n_epochs = 10
-    print_step = max(n_epochs // 5, 1)
+    print_step = max(n_epochs // 3, 1)
     
     train, val, ENDPOINT, AGE, SEX, vocab_size, sequence_length, n_individuals = get_dataset(nrows = 30_000_000)
+    
+    GAN_types = ['standard', 'feature matching', 'wasserstein', 'least squares']
+    relativistic_average_options = [None, True, False]
     
     print('Data loaded, number of individuals:', n_individuals)
     
@@ -172,7 +175,9 @@ def optimise(kappa, n_runs, n_sub_runs, ignore_similar, GAN_type, score_type = '
                        num_filters,
                        num_heads,
                        out_channels,
-                       temperature): # float
+                       temperature, # float
+                       GAN_type,
+                       relativistic_average):
         
         try:
             batch_size = int(batch_size)
@@ -185,12 +190,19 @@ def optimise(kappa, n_runs, n_sub_runs, ignore_similar, GAN_type, score_type = '
             num_filters = int(num_filters)
             num_heads = int(num_heads)
             out_channels = int(out_channels)
+            
+            GAN_type = GAN_types[int(GAN_type)]
+            relativistic_average = relativistic_average_options[int(relativistic_average)]
+            
+            print('GAN type:', GAN_type)
+            print('Relativistic average:', relativistic_average)
 
             filter_sizes = list(range(2, 2 + num_filters)) # values can be at most the sequence_length
             lr = 10 ** (-lr)
 
             dummy_batch_size = 128
             ignore_time = True
+            one_sided_label_smoothing = True
             
             scores = []
             
@@ -204,7 +216,7 @@ def optimise(kappa, n_runs, n_sub_runs, ignore_similar, GAN_type, score_type = '
 
                 # Call train function
                 chi_squared_score, transition_score, similarity_score, indv_score, transition_score_full, _, _, _ = train_GAN(
-                    G, D, train, val, ENDPOINT, batch_size, vocab_size, sequence_length, n_epochs, lr, temperature, GAN_type, print_step, get_scores, ignore_time, dummy_batch_size, ignore_similar
+                    G, D, train, val, ENDPOINT, batch_size, vocab_size, sequence_length, n_epochs, lr, temperature, GAN_type, print_step, get_scores, ignore_time, dummy_batch_size, ignore_similar, one_sided_label_smoothing, relativistic_average
                 )
                 
                 if score_type == 'general':
@@ -214,7 +226,7 @@ def optimise(kappa, n_runs, n_sub_runs, ignore_similar, GAN_type, score_type = '
                 elif score_type == 'chd_and_br_cancer':
                     # minimize the transition score from chd to breast cancer
                     score = -transition_score_full[ \
-                                  -1, ENDPOINT.vocab.stoi['I9_CHD'] - 3, ENDPOINT.vocab.stoi['C3_BREAST'] - 3 \
+                                  -1, ENDPOINT.vocab.stoi['C3_BREAST'] - 3, ENDPOINT.vocab.stoi['I9_CHD'] - 3 \
                               ]
                     
                     if not ignore_similar:
@@ -248,6 +260,8 @@ def optimise(kappa, n_runs, n_sub_runs, ignore_similar, GAN_type, score_type = '
         'num_heads': (1, 21),
         'out_channels': (1, 21),
         'temperature': (1, 1000),
+        'GAN_type': (0, len(GAN_types) - 0.01),
+        'relativistic_average': (0, len(relativistic_average_options) - 0.01)
     }
 
     optimizer = BayesianOptimization(
@@ -278,9 +292,8 @@ if __name__ == '__main__':
     
     kappa = 1
     n_runs = 100
-    n_sub_runs = 3
+    n_sub_runs = 2
     ignore_similar = True
-    score_type = 'chd_and_br_cancer'
-    GAN_type = 'least squares'
+    score_type = 'general'
     
-    optimise(kappa, n_runs, n_sub_runs, ignore_similar, GAN_type, score_type)
+    optimise(kappa, n_runs, n_sub_runs, ignore_similar, score_type)

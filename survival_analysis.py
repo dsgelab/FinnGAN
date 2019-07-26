@@ -81,9 +81,7 @@ def get_survival_analysis_input(data, ENDPOINT, event_name, predictor_name, sequ
     
 
 
-def analyse(nrows, event_name, predictor_name):
-    train, val, ENDPOINT, AGE, SEX, vocab_size, sequence_length, n_individuals = get_dataset(nrows = nrows)
-    print('Data loaded, number of individuals:', n_individuals)
+def analyse(train, val, ENDPOINT, AGE, SEX, vocab_size, sequence_length, n_individuals, event_name, predictor_name):
     
     G = RelationalMemoryGenerator(mem_slots, head_size, embed_size, vocab_size, temperature, num_heads, num_blocks)
     G.load_state_dict(torch.load(G_filename))
@@ -119,6 +117,9 @@ def analyse(nrows, event_name, predictor_name):
 
 if __name__ == '__main__':
     nrows = 60_000_000
+    train, val, ENDPOINT, AGE, SEX, vocab_size, sequence_length, n_individuals = get_dataset(nrows = nrows)
+    print('Data loaded, number of individuals:', n_individuals)
+    
     event_name = 'I9_CHD'
     predictor_name = 'C3_BREAST'
     analyse(nrows, event_name, predictor_name)
