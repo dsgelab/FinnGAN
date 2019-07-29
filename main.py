@@ -33,6 +33,37 @@ print('Device:', device)
 Tensor = torch.cuda.FloatTensor if cuda else torch.FloatTensor
 
 def main():
+    if params_name == 'general':
+        parameters = general_params['params']
+    elif params_name == 'br_cancer_and_chd':
+        parameters = br_cancer_and_chd_params['params']
+    
+    batch_size = parameters['batch_size']
+    embed_size = parameters['embed_size']
+    head_size = parameters['head_size']
+    lr = parameters['lr']
+    mem_slots = parameters['mem_slots']
+    n_embeddings = parameters['n_embeddings']
+    num_blocks = parameters['num_blocks']
+    num_filters = parameters['num_filters']
+    num_heads = parameters['num_heads']
+    out_channels = parameters['out_channels']
+    temperature = parameters['temperature']
+    
+    batch_size = int(batch_size)
+    embed_size = int(embed_size)
+    head_size = int(head_size)
+    lr = int(lr)
+    mem_slots = int(mem_slots)
+    n_embeddings = int(n_embeddings)
+    num_blocks = int(num_blocks)
+    num_filters = int(num_filters)
+    num_heads = int(num_heads)
+    out_channels = int(out_channels)
+
+    filter_sizes = list(range(2, 2 + num_filters)) # values can be at most the sequence_length
+    lr = 10 ** (-lr)
+
     
     nrows = 60_000_000
     train, val, ENDPOINT, AGE, SEX, vocab_size, sequence_length, n_individuals = get_dataset(nrows = nrows)
@@ -67,7 +98,7 @@ def main():
 
     # Call train function
     scores1, scores2_mean, similarity_score, indv_score_mean, scores2, indv_score, accuracies_real, accuracies_fake = train_GAN(
-        G, D, train, val, ENDPOINT, batch_size, vocab_size, sequence_length, n_epochs, lr, temperature, GAN_type, print_step, get_scores, ignore_time, dummy_batch_size, ignore_similar, one_sided_label_smoothing, relativistic_average
+        G, D, train, val, ENDPOINT, batch_size, vocab_size, sequence_length, n_epochs, lr, temperature, GAN_type, n_critic, print_step, get_scores, ignore_time, dummy_batch_size, ignore_similar, one_sided_label_smoothing, relativistic_average
     )
 
     G.eval()

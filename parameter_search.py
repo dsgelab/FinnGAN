@@ -156,7 +156,7 @@ def fix_optim_log(filename):
 
 def optimise(kappa, n_runs, n_sub_runs, ignore_similar, score_type = 'general'):
     n_epochs = 10
-    print_step = max(n_epochs // 3, 1)
+    print_step = max(n_epochs // 2, 1)
     
     train, val, ENDPOINT, AGE, SEX, vocab_size, sequence_length, n_individuals = get_dataset(nrows = 30_000_000)
     
@@ -177,6 +177,7 @@ def optimise(kappa, n_runs, n_sub_runs, ignore_similar, score_type = 'general'):
                        out_channels,
                        temperature, # float
                        GAN_type,
+                       n_critic,
                        relativistic_average):
         
         try:
@@ -190,6 +191,7 @@ def optimise(kappa, n_runs, n_sub_runs, ignore_similar, score_type = 'general'):
             num_filters = int(num_filters)
             num_heads = int(num_heads)
             out_channels = int(out_channels)
+            n_critic = int(n_critic)
             
             GAN_type = GAN_types[int(GAN_type)]
             relativistic_average = relativistic_average_options[int(relativistic_average)]
@@ -216,7 +218,7 @@ def optimise(kappa, n_runs, n_sub_runs, ignore_similar, score_type = 'general'):
 
                 # Call train function
                 chi_squared_score, transition_score, similarity_score, indv_score, transition_score_full, _, _, _ = train_GAN(
-                    G, D, train, val, ENDPOINT, batch_size, vocab_size, sequence_length, n_epochs, lr, temperature, GAN_type, print_step, get_scores, ignore_time, dummy_batch_size, ignore_similar, one_sided_label_smoothing, relativistic_average
+                    G, D, train, val, ENDPOINT, batch_size, vocab_size, sequence_length, n_epochs, lr, temperature, GAN_type, n_critic, print_step, get_scores, ignore_time, dummy_batch_size, ignore_similar, one_sided_label_smoothing, relativistic_average
                 )
                 
                 if score_type == 'general':
@@ -261,6 +263,7 @@ def optimise(kappa, n_runs, n_sub_runs, ignore_similar, score_type = 'general'):
         'out_channels': (1, 21),
         'temperature': (1, 1000),
         'GAN_type': (0, len(GAN_types) - 0.01),
+        'n_critic': (1, 5.99),
         'relativistic_average': (0, len(relativistic_average_options) - 0.01)
     }
 

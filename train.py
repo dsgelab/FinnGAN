@@ -52,7 +52,7 @@ def pretrain_generator(G, train, batch_size, vocab_size, sequence_length, n_epoc
             optimizer.step()
             
         
-        if e % print_step == 0:
+        if (e + 1) % print_step == 0:
             print(
                 "[Epoch %d/%d] [G loss: %f]"
                 % (e, n_epochs, loss_total / count)
@@ -62,7 +62,7 @@ def pretrain_generator(G, train, batch_size, vocab_size, sequence_length, n_epoc
             
 # GAN_type is one of ['standard', 'feature matching', 'wasserstein', 'least squares']
 # relativistic_average is one of [None, True, False]
-def train_GAN(G, D, train, val, ENDPOINT, batch_size, vocab_size, sequence_length, n_epochs, lr, temperature, GAN_type, print_step = 10, score_fn = get_scores, ignore_time = True, dummy_batch_size = 128, ignore_similar = True, one_sided_label_smoothing = True, relativistic_average = None):    
+def train_GAN(G, D, train, val, ENDPOINT, batch_size, vocab_size, sequence_length, n_epochs, lr, temperature, GAN_type, n_critic, print_step = 10, score_fn = get_scores, ignore_time = True, dummy_batch_size = 128, ignore_similar = True, one_sided_label_smoothing = True, relativistic_average = None):    
     scores = []
     accuracies_real = []
     accuracies_fake = []
@@ -109,7 +109,7 @@ def train_GAN(G, D, train, val, ENDPOINT, batch_size, vocab_size, sequence_lengt
             criterionD.cuda()
             criterionG.cuda()
     
-    for e in range(n_epochs):
+    for e in range(n_epochs * n_critic):
         train_iter = Iterator(train, batch_size = batch_size, device = device)
         #loss_total = 0
         #count = 0
@@ -131,44 +131,45 @@ def train_GAN(G, D, train, val, ENDPOINT, batch_size, vocab_size, sequence_lengt
             #if cuda:
                 #memory = memory.cuda()
 
-            temp = temperature ** ((e + 1) / n_epochs)
+            temp = temperature ** ((e + 1) / (n_epochs * n_critic))
             fake_one_hot, _, _ = G(start_token, batch.AGE, batch.SEX.view(-1), None, sequence_length, temp)
+            
+            if e % n_critic == 0:
+                # Loss measures generator's ability to fool the discriminator
+                if GAN_type == 'feature matching':
+                    D_out_fake = D(fake_one_hot, batch.AGE, batch.SEX.view(-1), feature_matching = True).mean(dim = 0)
+                    D_out_real = D(train_data_one_hot.detach(), batch.AGE, batch.SEX.view(-1), feature_matching = True).mean(dim = 0)
 
-            # Loss measures generator's ability to fool the discriminator
-            if GAN_type == 'feature matching':
-                D_out_fake = D(fake_one_hot, batch.AGE, batch.SEX.view(-1), feature_matching = True).mean(dim = 0)
-                D_out_real = D(train_data_one_hot.detach(), batch.AGE, batch.SEX.view(-1), feature_matching = True).mean(dim = 0)
-                
-            elif GAN_type == 'standard' and relativistic_average is None:
-                D_out_fake = D(fake_one_hot, batch.AGE, batch.SEX.view(-1))
-                D_out_real = D(train_data_one_hot.detach(), batch.AGE, batch.SEX.view(-1))
+                elif GAN_type == 'standard' and relativistic_average is None:
+                    D_out_fake = D(fake_one_hot, batch.AGE, batch.SEX.view(-1))
+                    D_out_real = D(train_data_one_hot.detach(), batch.AGE, batch.SEX.view(-1))
 
-            elif GAN_type in ['least squares', 'wasserstein'] or relativistic_average is not None:
-                D_out_fake = D(fake_one_hot, batch.AGE, batch.SEX.view(-1), return_critic = True)
-                D_out_real = D(train_data_one_hot.detach(), batch.AGE, batch.SEX.view(-1), return_critic = True)
-                
-                
-            if GAN_type == 'feature matching':
-                g_loss = criterionG(D_out_fake, D_out_real)
-                
-            elif GAN_type in ['standard', 'least squares']:
-                if relativistic_average is None:
-                    g_loss = criterionG(D_out_fake, valid)
-                elif relativistic_average:
-                    g_loss = criterionG(D_out_fake - D_out_real.mean(0, keepdim=True), valid)
-                else:
-                    g_loss = criterionG(D_out_fake - D_out_real, valid)
-                    
-            elif GAN_type == 'wasserstein':
-                if relativistic_average is None:
-                    g_loss = -torch.mean(D_out_fake)
-                elif relativistic_average:
-                    g_loss = -torch.mean(D_out_fake - D_out_real.mean(0, keepdim=True))
-                else:
-                    g_loss = -torch.mean(D_out_fake - D_out_real)
+                elif GAN_type in ['least squares', 'wasserstein'] or relativistic_average is not None:
+                    D_out_fake = D(fake_one_hot, batch.AGE, batch.SEX.view(-1), return_critic = True)
+                    D_out_real = D(train_data_one_hot.detach(), batch.AGE, batch.SEX.view(-1), return_critic = True)
 
-            g_loss.backward()
-            optimizer_G.step()
+
+                if GAN_type == 'feature matching':
+                    g_loss = criterionG(D_out_fake, D_out_real)
+
+                elif GAN_type in ['standard', 'least squares']:
+                    if relativistic_average is None:
+                        g_loss = criterionG(D_out_fake, valid)
+                    elif relativistic_average:
+                        g_loss = criterionG(D_out_fake - D_out_real.mean(0, keepdim=True), valid)
+                    else:
+                        g_loss = criterionG(D_out_fake - D_out_real, valid)
+
+                elif GAN_type == 'wasserstein':
+                    if relativistic_average is None:
+                        g_loss = -torch.mean(D_out_fake)
+                    elif relativistic_average:
+                        g_loss = -torch.mean(D_out_fake - D_out_real.mean(0, keepdim=True))
+                    else:
+                        g_loss = -torch.mean(D_out_fake - D_out_real)
+
+                g_loss.backward()
+                optimizer_G.step()
 
             optimizer_D.zero_grad()
 
@@ -217,11 +218,11 @@ def train_GAN(G, D, train, val, ENDPOINT, batch_size, vocab_size, sequence_lengt
                 for p in D.parameters():
                     p.data.clamp_(-0.01, 0.01) # TODO: transform this into a tunable parameter
 
-        if e % print_step == 0:
+        if (e + 1) % (print_step * n_critic) == 0:
             print()
             print(
                 "[Epoch %d/%d] [D loss: %f] [G loss: %f] [Acc real: %f] [Acc fake: %f]"
-                % (e, n_epochs, d_loss.item(), g_loss.item(), accuracy_real, accuracy_fake)
+                % (e, n_epochs * n_critic, d_loss.item(), g_loss.item(), accuracy_real, accuracy_fake)
             )
             score = score_fn(G, ENDPOINT, train, val, dummy_batch_size, ignore_time, True, True, ignore_similar, vocab_size, sequence_length)
             print("[Scores:", *score, "]")
