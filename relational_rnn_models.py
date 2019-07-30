@@ -100,7 +100,7 @@ class RelationalMemoryGenerator(nn.Module):
 
         ########## parameters for initial embedded input projection ##########
         self.embed_size = embed_size
-        self.input_projector = nn.Linear(self.embed_size + 2, self.mem_size)
+        self.input_projector = nn.Linear(self.embed_size, self.mem_size)
 
         ########## parameters for gating ##########
         self.num_gates = 2 * self.calculate_gate_size()
@@ -117,7 +117,7 @@ class RelationalMemoryGenerator(nn.Module):
 
         # needs 2 linear layers for tying weights for embedding layers
         # first match the "output" of the RMC to embed_size, which is the embed dim
-        self.output_to_token_decoder = nn.Linear(self.mem_slots * self.mem_size, self.vocab_size)
+        self.output_to_token_decoder = nn.Linear(self.mem_slots * self.mem_size + 2, self.vocab_size)
         
         
         # Not used
@@ -360,10 +360,10 @@ class RelationalMemoryGenerator(nn.Module):
 
         # keep (Batch, ...) dim (0), flatten starting from dim 1
         embed = embed.view(embed.shape[0], -1)
+        embed = self.dropout(embed)
         
         # include age and sex information
-        embed = torch.cat([embed, age, sex], dim = 1) # [batch_size, embed_size + 2]
-        embed = self.dropout(embed)
+        #embed = torch.cat([embed, age, sex], dim = 1) # [batch_size, embed_size + 2]
         
         # apply linear layer for dim 1
         inputs = self.input_projector(embed)
@@ -387,6 +387,9 @@ class RelationalMemoryGenerator(nn.Module):
 
         output = next_memory.view(next_memory.shape[0], -1)
         
+        # include age and sex information
+        output = torch.cat([output, age, sex], dim = 1)
+        
         output = self.output_to_token_decoder(output)
         output = F.softmax(output, dim = 1)
         output = torch.log(output + eps)
@@ -395,18 +398,6 @@ class RelationalMemoryGenerator(nn.Module):
         
         return logit, next_token, next_memory
 
-        # Not used
-        # decode output to logit
-        output_embed = self.output_to_embed_decoder(output)
-        # TODO: this dropout is not mentioned in the paper. it's to match word-language-model dropout use case
-        output_embed = self.dropout(output_embed)
-
-        if not self.use_adaptive_softmax:
-            logit = self.embed_to_logit_decoder(output_embed)
-        else:
-            logit = output_embed
-
-        return logit, next_memory
 
     def forward(self, start_token, age, sex, memory, sequence_length, temperature = None, require_logits=True):
         if temperature is None:

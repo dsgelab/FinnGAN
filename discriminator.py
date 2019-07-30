@@ -22,9 +22,9 @@ class RelGANDiscriminator(nn.Module):
         
         self.embeddings = nn.ModuleList([nn.Embedding(self.vocab_size, self.embed_size) for _ in range(self.n_embeddings)])
         
-        self.convolutions = nn.ModuleList([nn.Conv2d(1, self.out_channels, (filter_size, self.embed_size + 2)) for filter_size in self.filter_sizes])
+        self.convolutions = nn.ModuleList([nn.Conv2d(1, self.out_channels, (filter_size, self.embed_size + 1)) for filter_size in self.filter_sizes])
         
-        self.hidden1 = nn.Linear(self.n_total_out_channels, self.n_total_out_channels // 2 + 1)
+        self.hidden1 = nn.Linear(self.n_total_out_channels + 1, self.n_total_out_channels // 2 + 1)
         self.hidden2 = nn.Linear(self.n_total_out_channels // 2 + 1, self.n_total_out_channels // 4 + 1)
         
         self.output_layer = nn.Linear(self.n_total_out_channels // 4 + 1, 1)
@@ -39,16 +39,16 @@ class RelGANDiscriminator(nn.Module):
         ages = age.view(-1, 1).type(Tensor) + torch.arange(self.sequence_length).type(Tensor)#, dtype = torch.float32, device = device)
         ages /= 100
         
-        sexes = (sex.view(-1, 1) - 2).repeat(1, self.sequence_length).type(Tensor)
+        sexes = (sex.view(-1, 1) - 2).repeat(1, self.n_embeddings).type(Tensor)
         
         ages = ages.unsqueeze(dim = 1).unsqueeze(dim = -1) # [batch_size, 1, self.sequence_length, 1]
-        sexes = sexes.unsqueeze(dim = 1).unsqueeze(dim = -1) # [batch_size, 1, self.sequence_length, 1]
+        sexes = sexes.unsqueeze(dim = -1) # [batch_size, self.n_embeddings, 1]
         
         for embedding in self.embeddings:
             # using tensordot instead of matmul because matmul produces "UnsafeViewBackward" grad_fn
             embed = torch.tensordot(x, embedding.weight, dims = 1)
             embed = embed.unsqueeze(dim = 1) # Add channel dimension => shape: [batch_size, 1, self.sequence_length, self.embed_size]
-            embed = torch.cat([embed, ages, sexes], dim = -1) # [batch_size, 1, self.sequence_length, self.embed_size + 2]
+            embed = torch.cat([embed, ages], dim = -1) # [batch_size, 1, self.sequence_length, self.embed_size + 1]
             max_pools = []
             for i, convolution in enumerate(self.convolutions):
                 conv = convolution(embed) # [batch_size, self.out_channels, self.sequence_length - self.filter_sizes[i] + 1, 1]
@@ -60,6 +60,7 @@ class RelGANDiscriminator(nn.Module):
             
         hidden = torch.cat(hidden, dim = -1) # [batch_size, self.n_total_out_channels, 1, self.n_embeddings]
         hidden = hidden.permute(0, 3, 1, 2).squeeze(dim = -1) # [batch_size, self.n_embeddings, self.n_total_out_channels]
+        hidden = torch.cat([hidden, sexes], dim = -1) # [batch_size, self.n_embeddings, self.n_total_out_channels + 1]
         
         hidden = self.hidden1(hidden) # [batch_size, self.n_embeddings, self.n_total_out_channels // 2 + 1]
         hidden = F.relu(hidden)
