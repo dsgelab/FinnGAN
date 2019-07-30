@@ -23,6 +23,7 @@ from discriminator import RelGANDiscriminator
 from utils import *
 from train import pretrain_generator, train_GAN
 from survival_analysis import analyse
+from test import test_association
 
 cuda = torch.cuda.is_available()
 
@@ -49,6 +50,7 @@ def main():
     num_heads = parameters['num_heads']
     out_channels = parameters['out_channels']
     temperature = parameters['temperature']
+    n_critic = parameters['n_critic']
     
     batch_size = int(batch_size)
     embed_size = int(embed_size)
@@ -60,12 +62,13 @@ def main():
     num_filters = int(num_filters)
     num_heads = int(num_heads)
     out_channels = int(out_channels)
+    n_critic = int(n_critic)
 
     filter_sizes = list(range(2, 2 + num_filters)) # values can be at most the sequence_length
     lr = 10 ** (-lr)
 
     
-    nrows = 60_000_000
+    nrows = 300_000_000
     train, val, ENDPOINT, AGE, SEX, vocab_size, sequence_length, n_individuals = get_dataset(nrows = nrows)
     
     print('Data loaded, number of individuals:', n_individuals)
@@ -97,7 +100,9 @@ def main():
     G.train()
 
     # Call train function
-    scores1, scores2_mean, similarity_score, indv_score_mean, scores2, indv_score, accuracies_real, accuracies_fake = train_GAN(
+    scores1_train, transition_scores_mean_train, similarity_score_train, indv_score_mean_train, transition_scores_train, indv_score_train, \
+    scores1_val, transition_scores_mean_val, similarity_score_val, indv_score_mean_val, transition_scores_val, indv_score_val, \
+    accuracies_real, accuracies_fake = train_GAN(
         G, D, train, val, ENDPOINT, batch_size, vocab_size, sequence_length, n_epochs, lr, temperature, GAN_type, n_critic, print_step, get_scores, ignore_time, dummy_batch_size, ignore_similar, one_sided_label_smoothing, relativistic_average
     )
 
@@ -110,7 +115,9 @@ def main():
 
     print('Time taken:', round_to_n(time.time() - start_time, n = 3), 'seconds')
 
-    save_plots_of_train_scores(scores1, scores2_mean, similarity_score, indv_score_mean, scores2, indv_score, accuracies_real, accuracies_fake, ignore_time, sequence_length, vocab_size, ENDPOINT)
+    save_plots_of_train_scores(scores1_train, transition_scores_mean_train, similarity_score_train, indv_score_mean_train, transition_scores_train, indv_score_train, \
+    scores1_val, transition_scores_mean_val, similarity_score_val, indv_score_mean_val, transition_scores_val, indv_score_val, \
+    accuracies_real, accuracies_fake, ignore_time, sequence_length, vocab_size, ENDPOINT)
 
 
     test_size = 10
@@ -120,7 +127,9 @@ def main():
     
     event_name = 'I9_CHD'
     predictor_name = 'C3_BREAST'
-    analyse(train, val, ENDPOINT, AGE, SEX, vocab_size, sequence_length, n_individuals, event_name, predictor_name)
+    analyse(G, train, val, ENDPOINT, AGE, SEX, vocab_size, sequence_length, n_individuals, event_name, predictor_name)
+    
+    test_association(G, train, val, ENDPOINT, AGE, SEX, vocab_size, sequence_length, n_individuals)
 
 
 if __name__ == '__main__':

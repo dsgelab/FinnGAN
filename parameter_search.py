@@ -54,8 +54,8 @@ def random_search(n_runs):
 
     # Training params
     batch_size = np.arange(32, 200)
-    n_epochs = 10
-    print_step = max(n_epochs // 10, 1)
+    n_epochs = 8
+    print_step = max(n_epochs // 2, 1)
     lr = np.arange(4, 8)
     
     params = dict()
@@ -155,7 +155,7 @@ def fix_optim_log(filename):
     
 
 def optimise(kappa, n_runs, n_sub_runs, ignore_similar, score_type = 'general'):
-    n_epochs = 10
+    n_epochs = 8
     print_step = max(n_epochs // 2, 1)
     
     train, val, ENDPOINT, AGE, SEX, vocab_size, sequence_length, n_individuals = get_dataset(nrows = 30_000_000)
@@ -198,6 +198,7 @@ def optimise(kappa, n_runs, n_sub_runs, ignore_similar, score_type = 'general'):
             
             print('GAN type:', GAN_type)
             print('Relativistic average:', relativistic_average)
+            print('n_critic:', n_critic)
 
             filter_sizes = list(range(2, 2 + num_filters)) # values can be at most the sequence_length
             lr = 10 ** (-lr)
@@ -270,7 +271,7 @@ def optimise(kappa, n_runs, n_sub_runs, ignore_similar, score_type = 'general'):
     optimizer = BayesianOptimization(
         f = objective_function,
         pbounds = pbounds,
-        random_state = 1,
+        #random_state = 1,
     )
     
     filename = "optim_results/{}_{}.json".format(score_type, n_individuals)

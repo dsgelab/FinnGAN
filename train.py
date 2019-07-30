@@ -63,21 +63,30 @@ def pretrain_generator(G, train, batch_size, vocab_size, sequence_length, n_epoc
 # GAN_type is one of ['standard', 'feature matching', 'wasserstein', 'least squares']
 # relativistic_average is one of [None, True, False]
 def train_GAN(G, D, train, val, ENDPOINT, batch_size, vocab_size, sequence_length, n_epochs, lr, temperature, GAN_type, n_critic, print_step = 10, score_fn = get_scores, ignore_time = True, dummy_batch_size = 128, ignore_similar = True, one_sided_label_smoothing = True, relativistic_average = None):    
-    scores = []
+    scores_train = []
+    scores_val = []
     accuracies_real = []
     accuracies_fake = []
     
-    score = score_fn(G, ENDPOINT, train, val, dummy_batch_size, ignore_time, True, True, ignore_similar, vocab_size, sequence_length)
-    print('Scores before training:', *score)
-    scores.append(score)
+    score = score_fn(G, ENDPOINT, train, dummy_batch_size, ignore_time, True, True, ignore_similar, vocab_size, sequence_length)
+    print('Scores before training (train):', *score)
+    scores_train.append(score)
+    
+    score = score_fn(G, ENDPOINT, val, dummy_batch_size, ignore_time, True, True, ignore_similar, vocab_size, sequence_length)
+    print('Scores before training (val):', *score)
+    scores_val.append(score)
     
     print('pretraining generator...')
     pretrain_generator(G, train, batch_size, vocab_size, sequence_length, max(n_epochs // 10, 1), lr * 100, print_step = max(n_epochs // 10 - 1, 1))
     print('pretraining complete')
     
-    score = score_fn(G, ENDPOINT, train, val, dummy_batch_size, ignore_time, True, True, ignore_similar, vocab_size, sequence_length)
-    print("[Scores:", *score, "]")
-    scores.append(score)
+    score = score_fn(G, ENDPOINT, train, dummy_batch_size, ignore_time, True, True, ignore_similar, vocab_size, sequence_length)
+    print("[Scores (train):", *score, "]")
+    scores_train.append(score)
+    
+    score = score_fn(G, ENDPOINT, val, dummy_batch_size, ignore_time, True, True, ignore_similar, vocab_size, sequence_length)
+    print("[Scores (val):", *score, "]")
+    scores_val.append(score)
     
     if GAN_type == 'standard':
         if relativistic_average is None:
@@ -216,7 +225,7 @@ def train_GAN(G, D, train, val, ENDPOINT, batch_size, vocab_size, sequence_lengt
             if GAN_type == 'wasserstein':
                 # Clip weights of discriminator
                 for p in D.parameters():
-                    p.data.clamp_(-0.01, 0.01) # TODO: transform this into a tunable parameter
+                    p.data.clamp_(-0.01, 0.01) # TODO: transform this into a tunable parameter?
 
         if (e + 1) % (print_step * n_critic) == 0:
             print()
@@ -224,20 +233,33 @@ def train_GAN(G, D, train, val, ENDPOINT, batch_size, vocab_size, sequence_lengt
                 "[Epoch %d/%d] [D loss: %f] [G loss: %f] [Acc real: %f] [Acc fake: %f]"
                 % (e, n_epochs * n_critic, d_loss.item(), g_loss.item(), accuracy_real, accuracy_fake)
             )
-            score = score_fn(G, ENDPOINT, train, val, dummy_batch_size, ignore_time, True, True, ignore_similar, vocab_size, sequence_length)
-            print("[Scores:", *score, "]")
-            scores.append(score)
+            score = score_fn(G, ENDPOINT, train, dummy_batch_size, ignore_time, True, True, ignore_similar, vocab_size, sequence_length)
+            print("[Scores (train):", *score, "]")
+            scores_train.append(score)
+            
+            score = score_fn(G, ENDPOINT, val, dummy_batch_size, ignore_time, True, True, ignore_similar, vocab_size, sequence_length)
+            print("[Scores (val):", *score, "]")
+            scores_val.append(score)
             accuracies_real.append(accuracy_real)
             accuracies_fake.append(accuracy_fake)
             
-    score = score_fn(G, ENDPOINT, train, val, dummy_batch_size, ignore_time, True, True, ignore_similar, vocab_size, sequence_length)
-    print('Scores after training:', *score)
-    scores.append(score)
+    score = score_fn(G, ENDPOINT, train, dummy_batch_size, ignore_time, True, True, ignore_similar, vocab_size, sequence_length)
+    print('Scores after training (train):', *score)
+    scores_train.append(score)
+    
+    score = score_fn(G, ENDPOINT, val, dummy_batch_size, ignore_time, True, True, ignore_similar, vocab_size, sequence_length)
+    print('Scores after training (val):', *score)
+    scores_val.append(score)
             
-    output = [[] for _ in range(len(scores[0]))]
-    for i in range(len(scores)):
-        for j in range(len(scores[i])):
-            output[j].append(scores[i][j])
+    output = [[] for _ in range(len(scores_train[0]) + len(scores_val[0]))]
+    
+    for i in range(len(scores_train)):
+        for j in range(len(scores_train[i])):
+            output[j].append(scores_train[i][j])
+            
+    for i in range(len(scores_val)):
+        for j in range(len(scores_val[i])):
+            output[j + len(scores_train[0])].append(scores_val[i][j])
 
     output.append(accuracies_real)
     output.append(accuracies_fake)

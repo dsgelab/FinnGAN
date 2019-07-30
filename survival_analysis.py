@@ -81,10 +81,7 @@ def get_survival_analysis_input(data, ENDPOINT, event_name, predictor_name, sequ
     
 
 
-def analyse(train, val, ENDPOINT, AGE, SEX, vocab_size, sequence_length, n_individuals, event_name, predictor_name):
-    
-    G = RelationalMemoryGenerator(mem_slots, head_size, embed_size, vocab_size, temperature, num_heads, num_blocks)
-    G.load_state_dict(torch.load(G_filename))
+def analyse(G, train, val, ENDPOINT, AGE, SEX, vocab_size, sequence_length, n_individuals, event_name, predictor_name):
     G.eval()
     
     data, data_fake = get_real_and_fake_data(G, train, False, dummy_batch_size, sequence_length)
@@ -122,4 +119,27 @@ if __name__ == '__main__':
     
     event_name = 'I9_CHD'
     predictor_name = 'C3_BREAST'
-    analyse(nrows, event_name, predictor_name)
+    
+    if params_name == 'general':
+        parameters = general_params['params']
+    elif params_name == 'br_cancer_and_chd':
+        parameters = br_cancer_and_chd_params['params']
+    
+    embed_size = parameters['embed_size']
+    head_size = parameters['head_size']
+    mem_slots = parameters['mem_slots']
+    num_blocks = parameters['num_blocks']
+    num_heads = parameters['num_heads']
+    temperature = parameters['temperature']
+    
+    embed_size = int(embed_size)
+    head_size = int(head_size)
+    mem_slots = int(mem_slots)
+    num_blocks = int(num_blocks)
+    num_heads = int(num_heads)
+
+    G = RelationalMemoryGenerator(mem_slots, head_size, embed_size, vocab_size, temperature, num_heads, num_blocks)
+    G.load_state_dict(torch.load(G_filename))
+    
+    
+    analyse(G, train, val, ENDPOINT, AGE, SEX, vocab_size, sequence_length, n_individuals, event_name, predictor_name)
