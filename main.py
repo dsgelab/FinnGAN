@@ -69,7 +69,7 @@ def main():
         lr = 10 ** (-lr)
 
     
-    nrows = 300_000_000
+    nrows = 2_000_000
     train, val, ENDPOINT, AGE, SEX, vocab_size, sequence_length, n_individuals = get_dataset(nrows = nrows)
     
     print('Data loaded, number of individuals:', n_individuals)
@@ -80,6 +80,29 @@ def main():
     # Train the GAN
 
     start_time = time.time()
+    
+    
+    # Generator params
+    mem_slots = 1
+    head_size = 6
+    embed_size = 4
+    temperature = 5
+    num_heads = 5
+    num_blocks = 4
+
+
+    # Discriminator params
+    n_embeddings = 3
+    embed_size = embed_size
+    out_channels = 5
+    filter_sizes = [2, 3] # values can be at most the sequence_length
+    n_critic = 1
+
+    # Training params
+    batch_size = 128
+    n_epochs = 10
+    print_step = max(n_epochs // 10, 1)
+    lr = 1e-4
 
     G = RelationalMemoryGenerator(mem_slots, head_size, embed_size, vocab_size, temperature, num_heads, num_blocks)
     D = RelGANDiscriminator(n_embeddings, vocab_size, embed_size, sequence_length, out_channels, filter_sizes)
@@ -106,13 +129,13 @@ def main():
     data, ages, sexes, data_fake, ages_fake, sexes_fake = get_real_and_fake_data(G, train, ignore_similar, dummy_batch_size, sequence_length, True)
     
     analyse(data, data_fake, True, True, ENDPOINT, sequence_length, event_name, predictor_name)
-    test_generator(data, ages, sexes, data_fake, ages_fake, sexes_fake, True, True, ENDPOINT, vocab_size, sequence_length)
+    test_generator(data, ages, sexes, data_fake, ages_fake, sexes_fake, True, True, ENDPOINT, SEX, vocab_size, sequence_length)
     
     
     data, ages, sexes, data_fake, ages_fake, sexes_fake = get_real_and_fake_data(G, val, ignore_similar, dummy_batch_size, sequence_length, True)
     
     analyse(data, data_fake, True, False, ENDPOINT, sequence_length, event_name, predictor_name)
-    test_generator(data, ages, sexes, data_fake, ages_fake, sexes_fake, True, False, ENDPOINT, vocab_size, sequence_length)
+    test_generator(data, ages, sexes, data_fake, ages_fake, sexes_fake, True, False, ENDPOINT, SEX, vocab_size, sequence_length)
 
     
     
@@ -150,13 +173,13 @@ def main():
     data, ages, sexes, data_fake, ages_fake, sexes_fake = get_real_and_fake_data(G, train, ignore_similar, dummy_batch_size, sequence_length, True)
     
     analyse(data, data_fake, False, True, ENDPOINT, sequence_length, event_name, predictor_name)
-    test_generator(data, ages, sexes, data_fake, ages_fake, sexes_fake, False, True, ENDPOINT, vocab_size, sequence_length)
+    test_generator(data, ages, sexes, data_fake, ages_fake, sexes_fake, False, True, ENDPOINT, SEX, vocab_size, sequence_length)
     
     
     data, ages, sexes, data_fake, ages_fake, sexes_fake = get_real_and_fake_data(G, val, ignore_similar, dummy_batch_size, sequence_length, True)
     
     analyse(data, data_fake, False, False, ENDPOINT, sequence_length, event_name, predictor_name)
-    test_generator(data, ages, sexes, data_fake, ages_fake, sexes_fake, False, False, ENDPOINT, vocab_size, sequence_length)
+    test_generator(data, ages, sexes, data_fake, ages_fake, sexes_fake, False, False, ENDPOINT, SEX, vocab_size, sequence_length)
 
 if __name__ == '__main__':
     main()

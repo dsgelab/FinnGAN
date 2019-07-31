@@ -247,7 +247,7 @@ if __name__ == '__main__':
     #random_search(n_runs)
     
     kappa = 1
-    n_runs = 100
+    n_runs = 60
     n_sub_runs = 2
     ignore_similar = True
     score_type = 'general'

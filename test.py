@@ -8,6 +8,7 @@ from utils import *
 from relational_rnn_models import RelationalMemoryGenerator
     
 def plot_transition_matrix_comparisons(transition_freq_real, transition_freq_fake, before, train, ENDPOINT, vocab_size, title):
+    plt.style.use('classic')
     
     fig, ax = plt.subplots(1, 3, sharex='col', sharey='row')
     fig.subplots_adjust(left=0.22075, right=0.9)
@@ -38,8 +39,10 @@ def plot_transition_matrix_comparisons(transition_freq_real, transition_freq_fak
     if title:
         fig.suptitle('Transition probabilities ({}, {})'.format('Before' if before else 'After', 'train' if train else 'val'))
     fig.savefig('figs/{}_transition_matrices_{}.svg'.format('Before' if before else 'After', 'train' if train else 'val'))
+    
+    plt.style.use(plot_style)
 
-def test_generator(data, ages, sexes, data_fake, ages_fake, sexes_fake, before, train, ENDPOINT, vocab_size, sequence_length):
+def test_generator(data, ages, sexes, data_fake, ages_fake, sexes_fake, before, train, ENDPOINT, SEX, vocab_size, sequence_length):
     subjects_with_br_cancer = (data_fake == ENDPOINT.vocab.stoi['C3_BREAST']).any(dim = 1)
     sexes_of_subjects_with_br_cancer = sexes_fake[subjects_with_br_cancer]
     association_score = (sexes_of_subjects_with_br_cancer == SEX.vocab.stoi['female']).float().mean()
@@ -105,4 +108,4 @@ if __name__ == '__main__':
     
     data, ages, sexes, data_fake, ages_fake, sexes_fake = get_real_and_fake_data(G, train, ignore_similar, dummy_batch_size, sequence_length, True)
     
-    test_generator(data, ages, sexes, data_fake, ages_fake, sexes_fake, False, True, ENDPOINT, vocab_size, sequence_length)
+    test_generator(data, ages, sexes, data_fake, ages_fake, sexes_fake, False, True, ENDPOINT, SEX, vocab_size, sequence_length)

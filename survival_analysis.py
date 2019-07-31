@@ -72,8 +72,8 @@ def get_survival_analysis_input(data, ENDPOINT, event_name, predictor_name, sequ
     outcomes = pd.Series(outcomes, name='outcome')
     
     res = pd.DataFrame({
-        'predictor': preds, 
-        'outcome': outcomes,
+        predictor_name: preds, 
+        event_name: outcomes,
         'duration': end_times - start_times
     })
     
@@ -87,7 +87,7 @@ def analyse(data, data_fake, before, train, ENDPOINT, sequence_length, event_nam
     surv_inp = get_survival_analysis_input(data, ENDPOINT, event_name, predictor_name, sequence_length)
     
     cph = CoxPHFitter()
-    cph.fit(surv_inp, duration_col='duration', event_col='outcome', show_progress=True)
+    cph.fit(surv_inp, duration_col='duration', event_col=event_name, show_progress=True)
     cph.print_summary()  # access the results using cph.summary
     #cph.check_assumptions(surv_inp, p_value_threshold=0.05, show_plots=False)
     cph.plot_covariate_groups(predictor_name, [0, 1])
@@ -100,7 +100,7 @@ def analyse(data, data_fake, before, train, ENDPOINT, sequence_length, event_nam
     surv_inp = get_survival_analysis_input(data_fake, ENDPOINT, event_name, predictor_name, sequence_length)
 
     cph = CoxPHFitter()
-    cph.fit(surv_inp, duration_col='duration', event_col='outcome', show_progress=True)
+    cph.fit(surv_inp, duration_col='duration', event_col=event_name, show_progress=True)
     cph.print_summary()  # access the results using cph.summary
     #cph.check_assumptions(surv_inp, p_value_threshold=0.05, show_plots=False)
     cph.plot_covariate_groups(predictor_name, [0, 1])
