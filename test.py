@@ -47,10 +47,10 @@ def test_generator(data, ages, sexes, data_fake, ages_fake, sexes_fake, train, E
     print('Breast cancer - sex association score ({}):'.format('train' if train else 'val'), association_score)
     
     
-    _, transition_freq = get_transition_matrix(data, vocab_size, None, ignore_time)
+    transition_freq = get_transition_matrix(data, vocab_size, None, ignore_time)
     from_br_cancer_to_chd = transition_freq[ENDPOINT.vocab.stoi['C3_BREAST'] - 3, ENDPOINT.vocab.stoi['I9_CHD'] - 3, 1]
     
-    _, transition_freq_fake = get_transition_matrix(data_fake, vocab_size, None, ignore_time)
+    transition_freq_fake = get_transition_matrix(data_fake, vocab_size, None, ignore_time)
     from_br_cancer_to_chd_fake = transition_freq_fake[ENDPOINT.vocab.stoi['C3_BREAST'] - 3, ENDPOINT.vocab.stoi['I9_CHD'] - 3, 1]
     
     print('Freq from breast cancer to CHD (real):', from_br_cancer_to_chd)
