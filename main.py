@@ -34,38 +34,39 @@ print('Device:', device)
 Tensor = torch.cuda.FloatTensor if cuda else torch.FloatTensor
 
 def main():
-    if params_name == 'general':
-        parameters = general_params['params']
-    elif params_name == 'br_cancer_and_chd':
-        parameters = br_cancer_and_chd_params['params']
-    
-    batch_size = parameters['batch_size']
-    embed_size = parameters['embed_size']
-    head_size = parameters['head_size']
-    lr = parameters['lr']
-    mem_slots = parameters['mem_slots']
-    n_embeddings = parameters['n_embeddings']
-    num_blocks = parameters['num_blocks']
-    num_filters = parameters['num_filters']
-    num_heads = parameters['num_heads']
-    out_channels = parameters['out_channels']
-    temperature = parameters['temperature']
-    n_critic = parameters['n_critic']
-    
-    batch_size = int(batch_size)
-    embed_size = int(embed_size)
-    head_size = int(head_size)
-    lr = int(lr)
-    mem_slots = int(mem_slots)
-    n_embeddings = int(n_embeddings)
-    num_blocks = int(num_blocks)
-    num_filters = int(num_filters)
-    num_heads = int(num_heads)
-    out_channels = int(out_channels)
-    n_critic = int(n_critic)
+    if not use_default_params:
+        if params_name == 'general':
+            parameters = general_params['params']
+        elif params_name == 'br_cancer_and_chd':
+            parameters = br_cancer_and_chd_params['params']
 
-    filter_sizes = list(range(2, 2 + num_filters)) # values can be at most the sequence_length
-    lr = 10 ** (-lr)
+        batch_size = parameters['batch_size']
+        embed_size = parameters['embed_size']
+        head_size = parameters['head_size']
+        lr = parameters['lr']
+        mem_slots = parameters['mem_slots']
+        n_embeddings = parameters['n_embeddings']
+        num_blocks = parameters['num_blocks']
+        num_filters = parameters['num_filters']
+        num_heads = parameters['num_heads']
+        out_channels = parameters['out_channels']
+        temperature = parameters['temperature']
+        n_critic = parameters['n_critic']
+
+        batch_size = int(batch_size)
+        embed_size = int(embed_size)
+        head_size = int(head_size)
+        lr = int(lr)
+        mem_slots = int(mem_slots)
+        n_embeddings = int(n_embeddings)
+        num_blocks = int(num_blocks)
+        num_filters = int(num_filters)
+        num_heads = int(num_heads)
+        out_channels = int(out_channels)
+        n_critic = int(n_critic)
+
+        filter_sizes = list(range(2, 2 + num_filters)) # values can be at most the sequence_length
+        lr = 10 ** (-lr)
 
     
     nrows = 300_000_000
@@ -98,13 +99,33 @@ def main():
     G.eval()
     save_frequency_comparisons(G, train, val, dummy_batch_size, vocab_size, sequence_length, ENDPOINT, prefix, N_max)
     G.train()
+    
+    event_name = 'I9_CHD'
+    predictor_name = 'C3_BREAST'
+    
+    data, ages, sexes, data_fake, ages_fake, sexes_fake = get_real_and_fake_data(G, train, ignore_similar, dummy_batch_size, sequence_length, True)
+    
+    analyse(data, data_fake, True, True, ENDPOINT, sequence_length, event_name, predictor_name)
+    test_generator(data, ages, sexes, data_fake, ages_fake, sexes_fake, True, True, ENDPOINT, vocab_size, sequence_length)
+    
+    
+    data, ages, sexes, data_fake, ages_fake, sexes_fake = get_real_and_fake_data(G, val, ignore_similar, dummy_batch_size, sequence_length, True)
+    
+    analyse(data, data_fake, True, False, ENDPOINT, sequence_length, event_name, predictor_name)
+    test_generator(data, ages, sexes, data_fake, ages_fake, sexes_fake, True, False, ENDPOINT, vocab_size, sequence_length)
+
+    
+    
 
     # Call train function
     scores1_train, transition_scores_mean_train, similarity_score_train, indv_score_mean_train, transition_scores_train, indv_score_train, \
     scores1_val, transition_scores_mean_val, similarity_score_val, indv_score_mean_val, transition_scores_val, indv_score_val, \
     accuracies_real, accuracies_fake = train_GAN(
-        G, D, train, val, ENDPOINT, batch_size, vocab_size, sequence_length, n_epochs, lr, temperature, GAN_type, n_critic, print_step, get_scores, ignore_time, dummy_batch_size, ignore_similar, one_sided_label_smoothing, relativistic_average
+        G, D, train, val, ENDPOINT, batch_size, vocab_size, sequence_length, n_epochs, lr, temperature, GAN_type, n_critic, print_step, get_scores, ignore_time, dummy_batch_size, ignore_similar, one_sided_label_smoothing, relativistic_average, False
     )
+    
+    
+    
 
     G.eval()
     
@@ -125,19 +146,17 @@ def main():
     
     torch.save(G.state_dict(), G_filename)
     
-    event_name = 'I9_CHD'
-    predictor_name = 'C3_BREAST'
     
     data, ages, sexes, data_fake, ages_fake, sexes_fake = get_real_and_fake_data(G, train, ignore_similar, dummy_batch_size, sequence_length, True)
     
-    analyse(data, data_fake, True, ENDPOINT, sequence_length, event_name, predictor_name)
-    test_generator(data, ages, sexes, data_fake, ages_fake, sexes_fake, True, ENDPOINT, vocab_size, sequence_length)
+    analyse(data, data_fake, False, True, ENDPOINT, sequence_length, event_name, predictor_name)
+    test_generator(data, ages, sexes, data_fake, ages_fake, sexes_fake, False, True, ENDPOINT, vocab_size, sequence_length)
     
     
     data, ages, sexes, data_fake, ages_fake, sexes_fake = get_real_and_fake_data(G, val, ignore_similar, dummy_batch_size, sequence_length, True)
     
-    analyse(data, data_fake, False, ENDPOINT, sequence_length, event_name, predictor_name)
-    test_generator(data, ages, sexes, data_fake, ages_fake, sexes_fake, False, ENDPOINT, vocab_size, sequence_length)
+    analyse(data, data_fake, False, False, ENDPOINT, sequence_length, event_name, predictor_name)
+    test_generator(data, ages, sexes, data_fake, ages_fake, sexes_fake, False, False, ENDPOINT, vocab_size, sequence_length)
 
 if __name__ == '__main__':
     main()

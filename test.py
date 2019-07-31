@@ -7,7 +7,7 @@ from params import *
 from utils import *
 from relational_rnn_models import RelationalMemoryGenerator
     
-def plot_transition_matrix_comparisons(transition_freq_real, transition_freq_fake, train, ENDPOINT, vocab_size, title):
+def plot_transition_matrix_comparisons(transition_freq_real, transition_freq_fake, before, train, ENDPOINT, vocab_size, title):
     
     fig, ax = plt.subplots(1, 3, sharex='col', sharey='row')
     fig.subplots_adjust(left=0.22075, right=0.9)
@@ -15,7 +15,7 @@ def plot_transition_matrix_comparisons(transition_freq_real, transition_freq_fak
     labels = [ENDPOINT.vocab.itos[i + 3] for i in ticks]
     cmap = 'plasma'
     
-    vmax = 1#torch.max(transition_freq_fake.max(), transition_freq_real.max())
+    vmax = torch.max(transition_freq_fake.max(), transition_freq_real.max())
     
     im = ax[0].matshow(transition_freq_real, vmin=0, vmax=vmax, cmap=cmap)
     ax[0].set_xticks(ticks)
@@ -36,27 +36,27 @@ def plot_transition_matrix_comparisons(transition_freq_real, transition_freq_fak
     
     fig.colorbar(im, ax=ax.ravel().tolist(), ticks=np.linspace(0, vmax, 5), shrink = 0.27, aspect = 10)
     if title:
-        fig.suptitle('Transition probabilities ({})'.format('train' if train else 'val'))
-    fig.savefig('figs/transition_matrices_{}.svg'.format('train' if train else 'val'))
+        fig.suptitle('Transition probabilities ({}, {})'.format('Before' if before else 'After', 'train' if train else 'val'))
+    fig.savefig('figs/{}_transition_matrices_{}.svg'.format('Before' if before else 'After', 'train' if train else 'val'))
 
-def test_generator(data, ages, sexes, data_fake, ages_fake, sexes_fake, train, ENDPOINT, vocab_size, sequence_length):
+def test_generator(data, ages, sexes, data_fake, ages_fake, sexes_fake, before, train, ENDPOINT, vocab_size, sequence_length):
     subjects_with_br_cancer = (data_fake == ENDPOINT.vocab.stoi['C3_BREAST']).any(dim = 1)
     sexes_of_subjects_with_br_cancer = sexes_fake[subjects_with_br_cancer]
     association_score = (sexes_of_subjects_with_br_cancer == SEX.vocab.stoi['female']).float().mean()
     
-    print('Breast cancer - sex association score ({}):'.format('train' if train else 'val'), association_score)
+    print('Breast cancer - sex association score ({}, {}):'.format('Before' if before else 'After', 'train' if train else 'val'), association_score)
     
     
     transition_freq = get_transition_matrix(data, vocab_size, None, ignore_time)
-    from_br_cancer_to_chd = transition_freq[ENDPOINT.vocab.stoi['C3_BREAST'] - 3, ENDPOINT.vocab.stoi['I9_CHD'] - 3, 1]
+    from_br_cancer_to_chd = transition_freq[ENDPOINT.vocab.stoi['C3_BREAST'] - 3, ENDPOINT.vocab.stoi['I9_CHD'] - 3]
     
     transition_freq_fake = get_transition_matrix(data_fake, vocab_size, None, ignore_time)
-    from_br_cancer_to_chd_fake = transition_freq_fake[ENDPOINT.vocab.stoi['C3_BREAST'] - 3, ENDPOINT.vocab.stoi['I9_CHD'] - 3, 1]
+    from_br_cancer_to_chd_fake = transition_freq_fake[ENDPOINT.vocab.stoi['C3_BREAST'] - 3, ENDPOINT.vocab.stoi['I9_CHD'] - 3]
     
     print('Freq from breast cancer to CHD (real):', from_br_cancer_to_chd)
     print('Freq from breast cancer to CHD (fake):', from_br_cancer_to_chd_fake)
     
-    plot_transition_matrix_comparisons(transition_freq, transition_freq_fake, train, ENDPOINT, vocab_size, True)
+    plot_transition_matrix_comparisons(transition_freq, transition_freq_fake, before, train, ENDPOINT, vocab_size, True)
     
     #return 
     

@@ -22,12 +22,12 @@ class RelGANDiscriminator(nn.Module):
         
         self.embeddings = nn.ModuleList([nn.Embedding(self.vocab_size, self.embed_size) for _ in range(self.n_embeddings)])
         
-        self.convolutions = nn.ModuleList([nn.Conv2d(1, self.out_channels, (filter_size, self.embed_size + 1)) for filter_size in self.filter_sizes])
+        self.convolutions = nn.ModuleList([nn.utils.spectral_norm(nn.Conv2d(1, self.out_channels, (filter_size, self.embed_size + 1))) for filter_size in self.filter_sizes])
         
-        self.hidden1 = nn.Linear(self.n_total_out_channels + 1, self.n_total_out_channels // 2 + 1)
-        self.hidden2 = nn.Linear(self.n_total_out_channels // 2 + 1, self.n_total_out_channels // 4 + 1)
+        self.hidden1 = nn.utils.spectral_norm(nn.Linear(self.n_total_out_channels + 1, self.n_total_out_channels // 2 + 1))
+        self.hidden2 = nn.utils.spectral_norm(nn.Linear(self.n_total_out_channels // 2 + 1, self.n_total_out_channels // 4 + 1))
         
-        self.output_layer = nn.Linear(self.n_total_out_channels // 4 + 1, 1)
+        self.output_layer = nn.utils.spectral_norm(nn.Linear(self.n_total_out_channels // 4 + 1, 1))
         
     def forward(self, x, age, sex, return_mean = True, feature_matching = False, return_critic = False):
         '''

@@ -2,21 +2,23 @@ max_sequence_length = 5
 
 endpoints = ['I9_HYPTENS', 'I9_ANGINA', 'I9_HEARTFAIL_NS', 'I9_STR_EXH', 'I9_CHD', 'C3_BREAST']
 
+use_default_params = True
+
 
 # Generator params
 mem_slots = 1
 head_size = 6
-embed_size = 10
+embed_size = 4
 temperature = 5
-num_heads = 10
-num_blocks = 6
+num_heads = 5
+num_blocks = 4
 
 
 # Discriminator params
-n_embeddings = 5
+n_embeddings = 3
 embed_size = embed_size
-out_channels = 15
-filter_sizes = [2, 3, 4] # values can be at most the sequence_length
+out_channels = 5
+filter_sizes = [2, 3] # values can be at most the sequence_length
 n_critic = 1
 
 # Training params

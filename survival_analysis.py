@@ -81,7 +81,7 @@ def get_survival_analysis_input(data, ENDPOINT, event_name, predictor_name, sequ
     
 
 
-def analyse(data, data_fake, train, ENDPOINT, sequence_length, event_name, predictor_name):
+def analyse(data, data_fake, before, train, ENDPOINT, sequence_length, event_name, predictor_name):
     print()
     print('REAL:')
     surv_inp = get_survival_analysis_input(data, ENDPOINT, event_name, predictor_name, sequence_length)
@@ -89,10 +89,10 @@ def analyse(data, data_fake, train, ENDPOINT, sequence_length, event_name, predi
     cph = CoxPHFitter()
     cph.fit(surv_inp, duration_col='duration', event_col='outcome', show_progress=True)
     cph.print_summary()  # access the results using cph.summary
-    cph.check_assumptions(surv_inp, p_value_threshold=0.05, show_plots=False)
+    #cph.check_assumptions(surv_inp, p_value_threshold=0.05, show_plots=False)
     cph.plot_covariate_groups(predictor_name, [0, 1])
     plt.title(event_name + ' (real)')
-    plt.savefig('figs/survival_real_{}.svg'.format('train' if train else 'val'))
+    plt.savefig('figs/{}_survival_real_{}.svg'.format('Before' if before else 'After', 'train' if train else 'val'))
     
     
     print()
@@ -102,10 +102,10 @@ def analyse(data, data_fake, train, ENDPOINT, sequence_length, event_name, predi
     cph = CoxPHFitter()
     cph.fit(surv_inp, duration_col='duration', event_col='outcome', show_progress=True)
     cph.print_summary()  # access the results using cph.summary
-    cph.check_assumptions(surv_inp, p_value_threshold=0.05, show_plots=False)
+    #cph.check_assumptions(surv_inp, p_value_threshold=0.05, show_plots=False)
     cph.plot_covariate_groups(predictor_name, [0, 1])
     plt.title(event_name + ' (fake)')
-    plt.savefig('figs/survival_fake_{}.svg'.format('train' if train else 'val'))
+    plt.savefig('figs/{}_survival_fake_{}.svg'.format('Before' if before else 'After', 'train' if train else 'val'))
 
 
 if __name__ == '__main__':
