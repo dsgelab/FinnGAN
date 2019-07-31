@@ -23,7 +23,7 @@ from discriminator import RelGANDiscriminator
 from utils import *
 from train import pretrain_generator, train_GAN
 from survival_analysis import analyse
-from test import test_association
+from test import test_generator
 
 cuda = torch.cuda.is_available()
 
@@ -127,10 +127,17 @@ def main():
     
     event_name = 'I9_CHD'
     predictor_name = 'C3_BREAST'
-    analyse(G, train, val, ENDPOINT, AGE, SEX, vocab_size, sequence_length, n_individuals, event_name, predictor_name)
     
-    test_association(G, train, val, ENDPOINT, AGE, SEX, vocab_size, sequence_length, n_individuals)
-
+    data, ages, sexes, data_fake, ages_fake, sexes_fake = get_real_and_fake_data(G, train, ignore_similar, dummy_batch_size, sequence_length, True)
+    
+    analyse(data, data_fake, True, ENDPOINT, sequence_length, event_name, predictor_name)
+    test_generator(data, ages, sexes, data_fake, ages_fake, sexes_fake, True, ENDPOINT, vocab_size, sequence_length)
+    
+    
+    data, ages, sexes, data_fake, ages_fake, sexes_fake = get_real_and_fake_data(G, val, ignore_similar, dummy_batch_size, sequence_length, True)
+    
+    analyse(data, data_fake, False, ENDPOINT, sequence_length, event_name, predictor_name)
+    test_generator(data, ages, sexes, data_fake, ages_fake, sexes_fake, False, ENDPOINT, vocab_size, sequence_length)
 
 if __name__ == '__main__':
     main()

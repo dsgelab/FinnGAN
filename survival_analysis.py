@@ -81,13 +81,7 @@ def get_survival_analysis_input(data, ENDPOINT, event_name, predictor_name, sequ
     
 
 
-def analyse(G, train, val, ENDPOINT, AGE, SEX, vocab_size, sequence_length, n_individuals, event_name, predictor_name):
-    G.eval()
-    
-    data, data_fake = get_real_and_fake_data(G, train, False, dummy_batch_size, sequence_length)
-    
-    
-    
+def analyse(data, data_fake, train, ENDPOINT, sequence_length, event_name, predictor_name):
     print()
     print('REAL:')
     surv_inp = get_survival_analysis_input(data, ENDPOINT, event_name, predictor_name, sequence_length)
@@ -96,8 +90,9 @@ def analyse(G, train, val, ENDPOINT, AGE, SEX, vocab_size, sequence_length, n_in
     cph.fit(surv_inp, duration_col='duration', event_col='outcome', show_progress=True)
     cph.print_summary()  # access the results using cph.summary
     cph.check_assumptions(surv_inp, p_value_threshold=0.05, show_plots=False)
-    cph.plot_covariate_groups('predictor', [0, 1])
-    plt.savefig('figs/test_real.svg')
+    cph.plot_covariate_groups(predictor_name, [0, 1])
+    plt.title(event_name + ' (real)')
+    plt.savefig('figs/survival_real_{}.svg'.format('train' if train else 'val'))
     
     
     print()
@@ -108,8 +103,9 @@ def analyse(G, train, val, ENDPOINT, AGE, SEX, vocab_size, sequence_length, n_in
     cph.fit(surv_inp, duration_col='duration', event_col='outcome', show_progress=True)
     cph.print_summary()  # access the results using cph.summary
     cph.check_assumptions(surv_inp, p_value_threshold=0.05, show_plots=False)
-    cph.plot_covariate_groups('predictor', [0, 1])
-    plt.savefig('figs/test_fake.svg')
+    cph.plot_covariate_groups(predictor_name, [0, 1])
+    plt.title(event_name + ' (fake)')
+    plt.savefig('figs/survival_fake_{}.svg'.format('train' if train else 'val'))
 
 
 if __name__ == '__main__':
@@ -141,5 +137,8 @@ if __name__ == '__main__':
     G = RelationalMemoryGenerator(mem_slots, head_size, embed_size, vocab_size, temperature, num_heads, num_blocks)
     G.load_state_dict(torch.load(G_filename))
     
+    G.eval()
     
-    analyse(G, train, val, ENDPOINT, AGE, SEX, vocab_size, sequence_length, n_individuals, event_name, predictor_name)
+    data, data_fake = get_real_and_fake_data(G, train, ignore_similar, dummy_batch_size, sequence_length)
+    
+    analyse(data, data_fake, True, ENDPOINT, sequence_length, event_name, predictor_name)

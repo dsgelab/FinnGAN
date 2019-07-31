@@ -225,9 +225,9 @@ def get_real_and_fake_data(G, dataset, ignore_similar, batch_size, sequence_leng
 def get_diffs(dist, target, separate = False):
     abs_diffs = torch.abs(dist - target)
     
-    max_abs_diffs, _ = torch.stack([torch.ones(target.shape) - target, target], dim = 1).max(dim = 1)
+    #max_abs_diffs, _ = torch.stack([torch.ones(target.shape) - target, target], dim = 1).max(dim = 1)
     
-    relative_diffs = abs_diffs / max_abs_diffs
+    relative_diffs = abs_diffs #/ max_abs_diffs
     
     if separate:
         return relative_diffs
@@ -721,3 +721,4 @@ def save_frequency_comparisons(G, train, val, dummy_batch_size, vocab_size, sequ
     counts, freqs = get_distribution(None, ENDPOINT, vocab_size, fake = False)
 
     save_relative_and_absolute(freqs, freqs_fake, counts, counts_fake, vocab_size, ENDPOINT, prefix, N_max)
+

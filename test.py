@@ -6,17 +6,42 @@ import pandas as pd
 from params import *
 from utils import *
 from relational_rnn_models import RelationalMemoryGenerator
-
-
-def test_association(G, train, val, ENDPOINT, AGE, SEX, vocab_size, sequence_length, n_individuals):
     
-    data, ages, sexes, data_fake, ages_fake, sexes_fake = get_real_and_fake_data(G, train, ignore_similar, 128, sequence_length, True)
+def plot_transition_matrix_comparisons(transition_freq_real, transition_freq_fake, train, ENDPOINT, vocab_size):
     
+    fig, ax = plt.subplots(1, 3, sharex='col', sharey='row')
+    fig.subplots_adjust(left=0.22075, right=0.9)
+    ticks = np.arange(vocab_size - 3)
+    labels = [ENDPOINT.vocab.itos[i + 3] for i in ticks]
+    cmap = 'Reds'
+    
+    im = ax[0].matshow(transition_freq_real[:, :, 1], vmin=0, vmax=1, cmap=cmap)
+    ax[0].set_xticks(ticks)
+    ax[0].set_xticklabels(labels, rotation=90)
+    ax[0].set_title('Real', y = -0.2)
+    
+    ax[1].matshow(transition_freq_fake[:, :, 1], vmin=0, vmax=1, cmap=cmap)
+    ax[1].set_xticks(ticks)
+    ax[1].set_xticklabels(labels, rotation=90)
+    ax[1].set_title('Fake', y = -0.2)
+    
+    ax[2].matshow(torch.abs(transition_freq_fake[:, :, 1] - transition_freq_real[:, :, 1]), vmin=0, vmax=1, cmap=cmap)
+    ax[2].set_xticks(ticks)
+    ax[2].set_xticklabels(labels, rotation=90)
+    ax[2].set_title('Abs. difference', y = -0.2)
+    
+    plt.yticks(ticks, labels)
+    
+    fig.colorbar(im, ax=ax.ravel().tolist(), ticks=np.linspace(0, 1, 5), shrink = 0.27, aspect = 10)
+    fig.suptitle('Transition probabilities ({})'.format('train' if train else 'val'))
+    fig.savefig('figs/transition_matrices_{}.svg'.format('train' if train else 'val'))
+
+def test_generator(data, ages, sexes, data_fake, ages_fake, sexes_fake, train, ENDPOINT, vocab_size, sequence_length):
     subjects_with_br_cancer = (data_fake == ENDPOINT.vocab.stoi['C3_BREAST']).any(dim = 1)
     sexes_of_subjects_with_br_cancer = sexes_fake[subjects_with_br_cancer]
     association_score = (sexes_of_subjects_with_br_cancer == SEX.vocab.stoi['female']).float().mean()
     
-    print('Breast cancer - sex association score:', association_score)
+    print('Breast cancer - sex association score ({}):'.format('train' if train else 'val'), association_score)
     
     
     _, transition_freq = get_transition_matrix(data, vocab_size, None, ignore_time)
@@ -28,12 +53,9 @@ def test_association(G, train, val, ENDPOINT, AGE, SEX, vocab_size, sequence_len
     print('Freq from breast cancer to CHD (real):', from_br_cancer_to_chd)
     print('Freq from breast cancer to CHD (fake):', from_br_cancer_to_chd_fake)
     
+    plot_transition_matrix_comparisons(transition_freq, transition_freq_fake, train, ENDPOINT, vocab_size)
+    
     return 
-    print()
-    print(transition_freq[:, :, 1])
-    print()
-    print(transition_freq_fake[:, :, 1])
-    print()
     
     print(get_scores(G, ENDPOINT, train, 128, ignore_time, True, True, ignore_similar, vocab_size, sequence_length))
     print(get_scores(G, ENDPOINT, val, 128, ignore_time, True, True, ignore_similar, vocab_size, sequence_length))
@@ -41,15 +63,6 @@ def test_association(G, train, val, ENDPOINT, AGE, SEX, vocab_size, sequence_len
 
 
 if __name__ == '__main__':
-    
-    GAN_type = 'feature matching'
-
-    relativistic_average = False
-
-    params_name = 'general'
-
-    G_filename = 'models/{}_{}_{}_model.pt'.format(params_name, GAN_type, relativistic_average)
-    
     nrows = 30_000_000
     train, val, ENDPOINT, AGE, SEX, vocab_size, sequence_length, n_individuals = get_dataset(nrows = nrows)
     print('Data loaded, number of individuals:', n_individuals)
@@ -74,5 +87,8 @@ if __name__ == '__main__':
 
     G = RelationalMemoryGenerator(mem_slots, head_size, embed_size, vocab_size, temperature, num_heads, num_blocks)
     G.load_state_dict(torch.load(G_filename))
+    G.eval()
     
-    test_association(G, train, val, ENDPOINT, AGE, SEX, vocab_size, sequence_length, n_individuals)
+    data, ages, sexes, data_fake, ages_fake, sexes_fake = get_real_and_fake_data(G, train, ignore_similar, dummy_batch_size, sequence_length, True)
+    
+    test_generator(data, ages, sexes, data_fake, ages_fake, sexes_fake, True, ENDPOINT, vocab_size, sequence_length)
