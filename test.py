@@ -7,33 +7,36 @@ from params import *
 from utils import *
 from relational_rnn_models import RelationalMemoryGenerator
     
-def plot_transition_matrix_comparisons(transition_freq_real, transition_freq_fake, train, ENDPOINT, vocab_size):
+def plot_transition_matrix_comparisons(transition_freq_real, transition_freq_fake, train, ENDPOINT, vocab_size, title):
     
     fig, ax = plt.subplots(1, 3, sharex='col', sharey='row')
     fig.subplots_adjust(left=0.22075, right=0.9)
     ticks = np.arange(vocab_size - 3)
     labels = [ENDPOINT.vocab.itos[i + 3] for i in ticks]
-    cmap = 'Reds'
+    cmap = 'plasma'
     
-    im = ax[0].matshow(transition_freq_real[:, :, 1], vmin=0, vmax=1, cmap=cmap)
+    vmax = 1#torch.max(transition_freq_fake.max(), transition_freq_real.max())
+    
+    im = ax[0].matshow(transition_freq_real, vmin=0, vmax=vmax, cmap=cmap)
     ax[0].set_xticks(ticks)
     ax[0].set_xticklabels(labels, rotation=90)
     ax[0].set_title('Real', y = -0.2)
     
-    ax[1].matshow(transition_freq_fake[:, :, 1], vmin=0, vmax=1, cmap=cmap)
+    ax[1].matshow(transition_freq_fake, vmin=0, vmax=vmax, cmap=cmap)
     ax[1].set_xticks(ticks)
     ax[1].set_xticklabels(labels, rotation=90)
     ax[1].set_title('Fake', y = -0.2)
     
-    ax[2].matshow(torch.abs(transition_freq_fake[:, :, 1] - transition_freq_real[:, :, 1]), vmin=0, vmax=1, cmap=cmap)
+    ax[2].matshow(torch.abs(transition_freq_fake - transition_freq_real), vmin=0, vmax=vmax, cmap=cmap)
     ax[2].set_xticks(ticks)
     ax[2].set_xticklabels(labels, rotation=90)
     ax[2].set_title('Abs. difference', y = -0.2)
     
     plt.yticks(ticks, labels)
     
-    fig.colorbar(im, ax=ax.ravel().tolist(), ticks=np.linspace(0, 1, 5), shrink = 0.27, aspect = 10)
-    fig.suptitle('Transition probabilities ({})'.format('train' if train else 'val'))
+    fig.colorbar(im, ax=ax.ravel().tolist(), ticks=np.linspace(0, vmax, 5), shrink = 0.27, aspect = 10)
+    if title:
+        fig.suptitle('Transition probabilities ({})'.format('train' if train else 'val'))
     fig.savefig('figs/transition_matrices_{}.svg'.format('train' if train else 'val'))
 
 def test_generator(data, ages, sexes, data_fake, ages_fake, sexes_fake, train, ENDPOINT, vocab_size, sequence_length):
@@ -53,9 +56,9 @@ def test_generator(data, ages, sexes, data_fake, ages_fake, sexes_fake, train, E
     print('Freq from breast cancer to CHD (real):', from_br_cancer_to_chd)
     print('Freq from breast cancer to CHD (fake):', from_br_cancer_to_chd_fake)
     
-    plot_transition_matrix_comparisons(transition_freq, transition_freq_fake, train, ENDPOINT, vocab_size)
+    plot_transition_matrix_comparisons(transition_freq, transition_freq_fake, train, ENDPOINT, vocab_size, True)
     
-    return 
+    #return 
     
     print(get_scores(G, ENDPOINT, train, 128, ignore_time, True, True, ignore_similar, vocab_size, sequence_length))
     print(get_scores(G, ENDPOINT, val, 128, ignore_time, True, True, ignore_similar, vocab_size, sequence_length))

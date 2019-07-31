@@ -129,22 +129,25 @@ class SeriesExample(Example):
     
 def get_transition_matrix(data, vocab_size, d = 1, ignore_time = False, eps = 1e-20):
     if ignore_time:
-        transition_count = torch.zeros(vocab_size - 3, vocab_size - 3, 2) # no <unk>, <pad>, or None
+        transition_freq = torch.ones(vocab_size - 3, vocab_size - 3) # no <unk>, <pad>, or None
         
-        # This assumes that the index of 'None' is 2
-        for indv in data:
-            indv_not_none = indv[indv > 2]
-            for idx in range(len(indv_not_none) - 1):
-                i1 = idx
-                ep1 = indv_not_none[i1]
-                for ep2 in range(3, vocab_size):
-                    if (indv_not_none[i1+1:] == ep2).any():
-                        transition_count[ep1 - 3, ep2 - 3, 1] += 1
-                    else:
-                        transition_count[ep1 - 3, ep2 - 3, 0] += 1
+        for v1 in range(3, vocab_size):
+            for v2 in range(v1, vocab_size):
+                li1 = data == v1
+                li2 = data == v2
+                
+                cumsum1 = torch.cumsum(li1, dim = 1)
+                cumsum2 = torch.cumsum(li2, dim = 1)
+                
+                sum1 = torch.sum(cumsum1 == 0, dim = 1)
+                sum2 = torch.sum(cumsum2 == 0, dim = 1)
+                
+                res1 = (sum1 <= sum2) & (sum2 < data.shape[1])
+                res2 = (sum2 <= sum1) & (sum1 < data.shape[1])
+                
+                transition_freq[v1 - 3, v2 - 3] = res1.float().mean()
+                transition_freq[v2 - 3, v1 - 3] = res2.float().mean()
             
-        transition_freq = (transition_count.permute(2, 0, 1) / (torch.sum(transition_count, dim = -1) + eps)).permute(1, 2, 0)
-        
     else:
         transition_count = torch.zeros(vocab_size - 2, vocab_size - 2)
 
@@ -160,7 +163,7 @@ def get_transition_matrix(data, vocab_size, d = 1, ignore_time = False, eps = 1e
         #print(torch.sum(transition_count, dim = 1))
         transition_freq = (transition_count.transpose(0, 1) / (torch.sum(transition_count, dim = 1) + eps)).transpose(0, 1)
                     
-    return transition_count, transition_freq
+    return transition_freq
 
 
 
@@ -268,16 +271,11 @@ def get_score(data_fake, ENDPOINT, vocab_size):
     return score
 
 def get_transition_score(data, data_fake, d, ignore_time, separate, vocab_size):
-    transition_count_real, transition_freq_real = get_transition_matrix(data, vocab_size, d, ignore_time)
-    transition_count_fake, transition_freq_fake = get_transition_matrix(data_fake, vocab_size, d, ignore_time)
+    transition_freq_real = get_transition_matrix(data, vocab_size, d, ignore_time)
+    transition_freq_fake = get_transition_matrix(data_fake, vocab_size, d, ignore_time)
     
     if ignore_time:
-        res = torch.zeros(transition_count_real.shape[:2])
-        
-        for i in range(vocab_size - 3):
-            for j in range(vocab_size - 3):
-                #res[i, j] = chi_sqrd_dist(transition_count_fake[i, j, :], transition_count_real[i, j, :])
-                res[i, j] = get_diffs(transition_freq_fake[i, j, :], transition_freq_real[i, j, :])
+        res = (transition_freq_real - transition_freq_fake).abs()
                 
         if separate:
             return res
@@ -286,7 +284,7 @@ def get_transition_score(data, data_fake, d, ignore_time, separate, vocab_size):
         
     else:
         chi_sqrd_ds = []
-        for i in range(transition_count_real.shape[0]):
+        for i in range(transition_freq_real.shape[0]):
             #chi_sqrd_d = chi_sqrd_dist(transition_count_fake[i, :], transition_count_real[i, :])
             chi_sqrd_d = get_diffs(transition_freq_fake[i, :], transition_freq_real[i, :])
             chi_sqrd_ds.append(chi_sqrd_d)
@@ -351,10 +349,11 @@ def robust_get_similarity_score(data1, data2, batch_size, separate):
 def get_individual_distribution(data, vocab_size, sequence_length):
     individual_counts = torch.zeros(vocab_size - 3, sequence_length + 1)
     
-    for indv in data:
-        for v in range(3, vocab_size):
-            count = torch.sum(indv == v)
-            individual_counts[v - 3, count] += 1
+    for v in range(3, vocab_size):
+        counts = torch.sum(data == v, dim = 1)
+        
+        for i in range(sequence_length + 1):
+            individual_counts[v - 3, i] += torch.sum(counts == i)
             
     individual_freqs = (individual_counts.transpose(0, 1) / torch.sum(individual_counts, dim = 1)).transpose(0, 1)
     

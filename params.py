@@ -44,7 +44,7 @@ temperature = 11
 '''
 
 ignore_time = True
-dummy_batch_size = 128
+dummy_batch_size = 256
 
 ignore_similar = True
 GAN_type = 'feature matching'
