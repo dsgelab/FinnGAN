@@ -60,13 +60,24 @@ def test_generator(data, ages, sexes, data_fake, ages_fake, sexes_fake, before, 
     
     #return 
     
-    print(get_scores(G, ENDPOINT, train, 128, ignore_time, True, True, ignore_similar, vocab_size, sequence_length))
-    print(get_scores(G, ENDPOINT, val, 128, ignore_time, True, True, ignore_similar, vocab_size, sequence_length))
+    if ignore_similar:
+        similarity_score = torch.tensor(1.0 - data_fake.shape[0] / data.shape[0])
+    else:
+        similarity_score = robust_get_similarity_score(data, data_fake, batch_size, False)
+        
+
+    score1 = get_score(data_fake, ENDPOINT, vocab_size)
+    
+    transition_score = get_aggregate_transition_score(data, data_fake, ignore_time, True, True, vocab_size, sequence_length)
+    
+    indv_score = get_individual_score(data, data_fake, True, vocab_size, sequence_length)
+    
+    print(score1, transition_score.mean(), similarity_score, indv_score.mean(), transition_score, indv_score)
     
 
 
 if __name__ == '__main__':
-    nrows = 30_000_000
+    nrows = 3_000_000
     train, val, ENDPOINT, AGE, SEX, vocab_size, sequence_length, n_individuals = get_dataset(nrows = nrows)
     print('Data loaded, number of individuals:', n_individuals)
     
@@ -94,4 +105,4 @@ if __name__ == '__main__':
     
     data, ages, sexes, data_fake, ages_fake, sexes_fake = get_real_and_fake_data(G, train, ignore_similar, dummy_batch_size, sequence_length, True)
     
-    test_generator(data, ages, sexes, data_fake, ages_fake, sexes_fake, True, ENDPOINT, vocab_size, sequence_length)
+    test_generator(data, ages, sexes, data_fake, ages_fake, sexes_fake, False, True, ENDPOINT, vocab_size, sequence_length)
