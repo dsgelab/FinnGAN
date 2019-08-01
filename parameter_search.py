@@ -194,10 +194,9 @@ def optimise(kappa, n_runs, n_sub_runs, ignore_similar, score_type = 'general'):
                     score = -transition_score_full[ \
                                   -1, ENDPOINT.vocab.stoi['C3_BREAST'] - 3, ENDPOINT.vocab.stoi['I9_CHD'] - 3 \
                               ]
+                elif score_type == 'transition':
+                    score = -transition_score[-1]
                     
-                    
-                if not ignore_similar:
-                    score -= similarity_score[-1] #/ similarity_score_mad
                 
                 print('Score:', score)
                 
