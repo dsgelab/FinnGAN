@@ -22,10 +22,12 @@ filter_sizes = [2, 3] # values can be at most the sequence_length
 n_critic = 1
 
 # Training params
-batch_size = 128
+#batch_size = 128
+batch_size = 17
 n_epochs = 10
 print_step = max(n_epochs // 10, 1)
-lr = 1e-4
+#lr = 1e-4
+lr = 10 ** (-6.864947029352897)
 
 
 ignore_time = True

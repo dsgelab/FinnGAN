@@ -494,6 +494,7 @@ def get_dataset(nrows = 3_000_000):
 
     fields = [('ENDPOINT', ENDPOINT), ('AGE', AGE), ('SEX', SEX)]
 
+    # TODO: split data first into a train and test set; use the same random state
     train_sequences, val_sequences = train_test_split(sequences, test_size = 0.1)
 
     train = DataFrameDataset(train_sequences, fields)
@@ -696,22 +697,18 @@ def visualize_output(G, size, dataset, sequence_length, ENDPOINT, SEX):
     data_real = batch.ENDPOINT.transpose(0, 1)
     start_tokens = data_real[:, :1]
     
-    plot_data(data_real, batch.AGE.view(-1), batch.SEX.view(-1), ENDPOINT, SEX, N=size, save=True, filename='figs/catheat_real.svg')
-
-    #memory = G.initial_state(batch_size = size)
+    # TODO: don't output empty subjects
 
     if cuda:
-        #memory = memory.cuda()
         start_tokens = start_tokens.cuda()
 
     _, data_fake, _ = G(start_tokens, batch.AGE, batch.SEX.view(-1), None, sequence_length)
+    
+    plot_data(data_real, batch.AGE.view(-1), batch.SEX.view(-1), ENDPOINT, SEX, N=size, save=True, filename='figs/catheat_real.svg')
 
     plot_data(data_fake, batch.AGE.view(-1), batch.SEX.view(-1), ENDPOINT, SEX, N=size, save=True, filename='figs/catheat_fake.svg')
     
-def save_frequency_comparisons(G, train, val, dummy_batch_size, vocab_size, sequence_length, ENDPOINT, prefix, N_max):
-    _, data_fake1 = get_real_and_fake_data(G, train, ignore_similar, batch_size, sequence_length)
-    _, data_fake2 = get_real_and_fake_data(G, val, ignore_similar, batch_size, sequence_length)
-    
+def save_frequency_comparisons(data_fake1, data_fake2, vocab_size, ENDPOINT, prefix, N_max):
     counts_fake1, _ = get_distribution(data_fake1, None, vocab_size, fake = True)
     counts_fake2, _ = get_distribution(data_fake2, None, vocab_size, fake = True)
 

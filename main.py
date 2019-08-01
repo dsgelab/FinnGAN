@@ -24,6 +24,7 @@ from train import pretrain_generator, train_GAN
 from survival_analysis import analyse
 from test import test_generator
 from params import *
+from save import save
 
 cuda = torch.cuda.is_available()
 
@@ -34,7 +35,7 @@ print('Device:', device)
 Tensor = torch.cuda.FloatTensor if cuda else torch.FloatTensor
 
 def main():
-    nrows = 2_000_000
+    nrows = 300_000_000
     train, val, ENDPOINT, AGE, SEX, vocab_size, sequence_length, n_individuals = get_dataset(nrows = nrows)
     
     print('Data loaded, number of individuals:', n_individuals)
@@ -44,7 +45,6 @@ def main():
 
     # Train the GAN
 
-    start_time = time.time()
     
     
 
@@ -64,25 +64,28 @@ def main():
     prefix = 'Before:'
     
     G.eval()
-    save_frequency_comparisons(G, train, val, dummy_batch_size, vocab_size, sequence_length, ENDPOINT, prefix, N_max)
-    G.train()
+    
+    data1, ages1, sexes1, data_fake1, ages_fake1, sexes_fake1 = get_real_and_fake_data(G, train, ignore_similar, dummy_batch_size, sequence_length, True)
+    
+    data2, ages2, sexes2, data_fake2, ages_fake2, sexes_fake2 = get_real_and_fake_data(G, val, ignore_similar, dummy_batch_size, sequence_length, True)
+    
+    save_frequency_comparisons(data_fake1, data_fake2, vocab_size, ENDPOINT, prefix, N_max)   
     
     event_name = 'I9_CHD'
     predictor_name = 'C3_BREAST'
     
-    data, ages, sexes, data_fake, ages_fake, sexes_fake = get_real_and_fake_data(G, train, ignore_similar, dummy_batch_size, sequence_length, True)
-    
-    analyse(data, data_fake, True, True, ENDPOINT, sequence_length, event_name, predictor_name)
-    test_generator(data, ages, sexes, data_fake, ages_fake, sexes_fake, True, True, ENDPOINT, SEX, vocab_size, sequence_length)
+    analyse(data1, data_fake1, True, True, ENDPOINT, sequence_length, event_name, predictor_name)
+    test_generator(data1, ages1, sexes1, data_fake1, ages_fake1, sexes_fake1, True, True, ENDPOINT, SEX, vocab_size, sequence_length)
     
     
-    data, ages, sexes, data_fake, ages_fake, sexes_fake = get_real_and_fake_data(G, val, ignore_similar, dummy_batch_size, sequence_length, True)
-    
-    analyse(data, data_fake, True, False, ENDPOINT, sequence_length, event_name, predictor_name)
-    test_generator(data, ages, sexes, data_fake, ages_fake, sexes_fake, True, False, ENDPOINT, SEX, vocab_size, sequence_length)
+    analyse(data2, data_fake2, True, False, ENDPOINT, sequence_length, event_name, predictor_name)
+    test_generator(data2, ages2, sexes2, data_fake2, ages_fake2, sexes_fake2, True, False, ENDPOINT, SEX, vocab_size, sequence_length)
 
+     
+    G.train()
     
     
+    start_time = time.time()
 
     # Call train function
     scores1_train, transition_scores_mean_train, similarity_score_train, indv_score_mean_train, transition_scores_train, indv_score_train, \
@@ -92,16 +95,20 @@ def main():
     )
     
     
+    print('Time taken:', round_to_n(time.time() - start_time, n = 3), 'seconds')
     
 
     G.eval()
     
     prefix = 'After:'
+    
+    data1, ages1, sexes1, data_fake1, ages_fake1, sexes_fake1 = get_real_and_fake_data(G, train, ignore_similar, dummy_batch_size, sequence_length, True)
+    
+    data2, ages2, sexes2, data_fake2, ages_fake2, sexes_fake2 = get_real_and_fake_data(G, val, ignore_similar, dummy_batch_size, sequence_length, True)
 
-    save_frequency_comparisons(G, train, val, dummy_batch_size, vocab_size, sequence_length, ENDPOINT, prefix, N_max)
+    save_frequency_comparisons(data_fake1, data_fake2, vocab_size, ENDPOINT, prefix, N_max)    
     
 
-    print('Time taken:', round_to_n(time.time() - start_time, n = 3), 'seconds')
 
     save_plots_of_train_scores(scores1_train, transition_scores_mean_train, similarity_score_train, indv_score_mean_train, transition_scores_train, indv_score_train, \
     scores1_val, transition_scores_mean_val, similarity_score_val, indv_score_mean_val, transition_scores_val, indv_score_val, \
@@ -113,17 +120,15 @@ def main():
     
     torch.save(G.state_dict(), G_filename)
     
-    
-    data, ages, sexes, data_fake, ages_fake, sexes_fake = get_real_and_fake_data(G, train, ignore_similar, dummy_batch_size, sequence_length, True)
-    
-    analyse(data, data_fake, False, True, ENDPOINT, sequence_length, event_name, predictor_name)
-    test_generator(data, ages, sexes, data_fake, ages_fake, sexes_fake, False, True, ENDPOINT, SEX, vocab_size, sequence_length)
+    analyse(data1, data_fake1, False, True, ENDPOINT, sequence_length, event_name, predictor_name)
+    test_generator(data1, ages1, sexes1, data_fake1, ages_fake1, sexes_fake1, False, True, ENDPOINT, SEX, vocab_size, sequence_length)
     
     
-    data, ages, sexes, data_fake, ages_fake, sexes_fake = get_real_and_fake_data(G, val, ignore_similar, dummy_batch_size, sequence_length, True)
+    analyse(data2, data_fake2, False, False, ENDPOINT, sequence_length, event_name, predictor_name)
+    test_generator(data2, ages2, sexes2, data_fake2, ages_fake2, sexes_fake2, False, False, ENDPOINT, SEX, vocab_size, sequence_length)
     
-    analyse(data, data_fake, False, False, ENDPOINT, sequence_length, event_name, predictor_name)
-    test_generator(data, ages, sexes, data_fake, ages_fake, sexes_fake, False, False, ENDPOINT, SEX, vocab_size, sequence_length)
+    save(data1, data_fake1, train = True)
+    save(data2, data_fake2, train = False)
 
 if __name__ == '__main__':
     main()

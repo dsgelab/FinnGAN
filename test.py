@@ -83,24 +83,6 @@ if __name__ == '__main__':
     nrows = 3_000_000
     train, val, ENDPOINT, AGE, SEX, vocab_size, sequence_length, n_individuals = get_dataset(nrows = nrows)
     print('Data loaded, number of individuals:', n_individuals)
-    
-    if params_name == 'general':
-        parameters = general_params['params']
-    elif params_name == 'br_cancer_and_chd':
-        parameters = br_cancer_and_chd_params['params']
-    
-    embed_size = parameters['embed_size']
-    head_size = parameters['head_size']
-    mem_slots = parameters['mem_slots']
-    num_blocks = parameters['num_blocks']
-    num_heads = parameters['num_heads']
-    temperature = parameters['temperature']
-    
-    embed_size = int(embed_size)
-    head_size = int(head_size)
-    mem_slots = int(mem_slots)
-    num_blocks = int(num_blocks)
-    num_heads = int(num_heads)
 
     G = RelationalMemoryGenerator(mem_slots, head_size, embed_size, vocab_size, temperature, num_heads, num_blocks)
     G.load_state_dict(torch.load(G_filename))
