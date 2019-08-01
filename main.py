@@ -36,7 +36,7 @@ Tensor = torch.cuda.FloatTensor if cuda else torch.FloatTensor
 def main():
     if not use_default_params:
         if params_name == 'general':
-            parameters = general_params['params']
+            parameters = general_params['params'][1]
         elif params_name == 'br_cancer_and_chd':
             parameters = br_cancer_and_chd_params['params']
 
@@ -69,7 +69,7 @@ def main():
         lr = 10 ** (-lr)
 
     
-    nrows = 2_000_000
+    nrows = 3_000_000
     train, val, ENDPOINT, AGE, SEX, vocab_size, sequence_length, n_individuals = get_dataset(nrows = nrows)
     
     print('Data loaded, number of individuals:', n_individuals)
@@ -82,27 +82,6 @@ def main():
     start_time = time.time()
     
     
-    # Generator params
-    mem_slots = 1
-    head_size = 6
-    embed_size = 4
-    temperature = 5
-    num_heads = 5
-    num_blocks = 4
-
-
-    # Discriminator params
-    n_embeddings = 3
-    embed_size = embed_size
-    out_channels = 5
-    filter_sizes = [2, 3] # values can be at most the sequence_length
-    n_critic = 1
-
-    # Training params
-    batch_size = 128
-    n_epochs = 10
-    print_step = max(n_epochs // 10, 1)
-    lr = 1e-4
 
     G = RelationalMemoryGenerator(mem_slots, head_size, embed_size, vocab_size, temperature, num_heads, num_blocks)
     D = RelGANDiscriminator(n_embeddings, vocab_size, embed_size, sequence_length, out_channels, filter_sizes)
