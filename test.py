@@ -66,7 +66,7 @@ def test_generator(data, ages, sexes, data_fake, ages_fake, sexes_fake, before, 
     if ignore_similar:
         similarity_score = torch.tensor(1.0 - data_fake.shape[0] / data.shape[0])
     else:
-        similarity_score = robust_get_similarity_score(data, data_fake, batch_size, False)
+        similarity_score = robust_get_similarity_score(data, data_fake, dummy_batch_size2, False)
         
 
     score1 = get_score(data_fake, ENDPOINT, vocab_size)

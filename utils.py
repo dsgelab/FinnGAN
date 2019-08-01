@@ -53,21 +53,23 @@ def get_distribution(data, field, vocab_size, fake = True):
 def get_sequence_of_codes(subject):
     codes = ['None' for _ in range(2017 - 2000 + 1)]
     
-    years = subject.groupby('EVENT_YEAR')
-    
-    for g, year in years:
-        value = 'None'
-        if year['ENDPOINT'].isin(['C3_BREAST']).any():
-            value = 'C3_BREAST'
-        elif year['ENDPOINT'].isin(['I9_CHD']).any():
-            value = 'I9_CHD'
-        else:
-            tmp = year['ENDPOINT'].unique()
-            li = pd.Series(tmp).isin(endpoints)
-            possible_endpoints = tmp[li]
-            if len(possible_endpoints) > 0:
-                value = np.random.choice(possible_endpoints)
-        codes[g - 2000] = value
+    if subject['ENDPOINT'].isin(endpoints).any():
+        years = subject.groupby('EVENT_YEAR')
+        
+        for g, year in years:
+            if year['ENDPOINT'].isin(endpoints).any():
+                value = 'None'
+                if year['ENDPOINT'].isin(['C3_BREAST']).any():
+                    value = 'C3_BREAST'
+                elif year['ENDPOINT'].isin(['I9_CHD']).any():
+                    value = 'I9_CHD'
+                else:
+                    tmp = year['ENDPOINT'].unique()
+                    li = pd.Series(tmp).isin(endpoints)
+                    possible_endpoints = tmp[li]
+                    if len(possible_endpoints) > 0:
+                        value = np.random.choice(possible_endpoints)
+                codes[g - 2000] = value
         
     res = ' '.join(codes)
     return res
@@ -210,7 +212,7 @@ def get_real_and_fake_data(G, dataset, ignore_similar, batch_size, sequence_leng
     
     # Filter those fake samples out which have at least 1 exact match in the real data
     if ignore_similar:
-        li = robust_get_similarity_score(data_fake, data, batch_size, True)
+        li = robust_get_similarity_score(data_fake, data, dummy_batch_size2, True)
         data_fake = data_fake[~li, :]
         
         if include_age_and_sex:
@@ -332,6 +334,8 @@ def get_similarity_score(data1, data2, separate):
 
 def robust_get_similarity_score(data1, data2, batch_size, separate):
     lis = []
+    
+    data2 = data2.unique(dim = 0)
         
     for i in range(0, data1.shape[0], batch_size):
         data1_tmp = data1[i:i+batch_size, :]
@@ -441,7 +445,7 @@ def get_scores(G, ENDPOINT, dataset, batch_size, ignore_time, separate1, separat
     if ignore_similar:
         similarity_score = torch.tensor(1.0 - data_fake.shape[0] / data.shape[0])
     else:
-        similarity_score = robust_get_similarity_score(data, data_fake, batch_size, False)
+        similarity_score = robust_get_similarity_score(data, data_fake, dummy_batch_size2, False)
         
 
     score1 = get_score(data_fake, ENDPOINT, vocab_size)

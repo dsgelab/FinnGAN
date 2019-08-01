@@ -32,6 +32,7 @@ lr = 10 ** (-6.864947029352897)
 
 ignore_time = True
 dummy_batch_size = 256
+dummy_batch_size2 = 10000
 
 ignore_similar = True
 GAN_type = 'feature matching'

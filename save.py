@@ -6,8 +6,8 @@ from params import *
 
 
 def save(data, data_fake, train = True):
-    df = pd.DataFrame(data.numpy())
-    df_fake = pd.DataFrame(data_fake.numpy())
+    df = pd.DataFrame(data.cpu().detach().numpy())
+    df_fake = pd.DataFrame(data_fake.cpu().detach().numpy())
     
     print(df.head())
     print(df_fake.head())
