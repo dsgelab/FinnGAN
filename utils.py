@@ -206,9 +206,14 @@ def get_real_and_fake_data(G, dataset, ignore_similar, batch_size, sequence_leng
     data = torch.cat(data)
     data_fake = torch.cat(data_fake)
     
+    data = data[:, 1:]
+    data_fake = data_fake[:, 1:]
+    
     if include_age_and_sex:
         ages = torch.cat(ages)
         sexes = torch.cat(sexes)
+        
+        ages += 1
     
     # Filter those fake samples out which have at least 1 exact match in the real data
     if ignore_similar:

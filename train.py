@@ -120,7 +120,9 @@ def train_GAN(G, D, train, val, ENDPOINT, batch_size, vocab_size, sequence_lengt
             criterionD.cuda()
             criterionG.cuda()
     
-    for e in range(n_epochs * n_critic):
+    e = 0
+    
+    while e < n_epochs * n_critic:
         train_iter = Iterator(train, batch_size = batch_size, device = device)
         #loss_total = 0
         #count = 0
@@ -245,6 +247,10 @@ def train_GAN(G, D, train, val, ENDPOINT, batch_size, vocab_size, sequence_lengt
             scores_val.append(score)
             accuracies_real.append(accuracy_real)
             accuracies_fake.append(accuracy_fake)
+            
+            # TODO: detect convergence
+            
+        e += 1
             
     if not searching:
         score = score_fn(G, ENDPOINT, train, dummy_batch_size, ignore_time, True, True, ignore_similar, vocab_size, sequence_length)

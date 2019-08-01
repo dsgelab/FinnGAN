@@ -78,8 +78,83 @@ def test_generator(data, ages, sexes, data_fake, ages_fake, sexes_fake, before, 
     print(score1, transition_score.mean(), similarity_score, indv_score.mean(), transition_score, indv_score)
     
 
+    
+    
+def simulate_training():
+    nrows = 300_000_000
+    train, val, ENDPOINT, AGE, SEX, vocab_size, sequence_length, n_individuals = get_dataset(nrows = nrows)
+    
+    print('Data loaded, number of individuals:', n_individuals)
+    
+    print('GAN type:', GAN_type)
+    print('Relativistic average:', relativistic_average)
 
+    # Train the GAN
+
+    
+    G = RelationalMemoryGenerator(mem_slots, head_size, embed_size, vocab_size, temperature, num_heads, num_blocks)
+    
+    
+    N_max = 10
+    prefix = 'Before:'
+    
+    G.eval()
+    
+    data1, ages1, sexes1, data_fake1, ages_fake1, sexes_fake1 = get_real_and_fake_data(G, train, ignore_similar, dummy_batch_size, sequence_length, True)
+    
+    data2, ages2, sexes2, data_fake2, ages_fake2, sexes_fake2 = get_real_and_fake_data(G, val, ignore_similar, dummy_batch_size, sequence_length, True)
+    
+    save_frequency_comparisons(data_fake1, data_fake2, vocab_size, ENDPOINT, prefix, N_max)   
+    
+    event_name = 'I9_CHD'
+    predictor_name = 'C3_BREAST'
+    
+    analyse(data1, data_fake1, True, True, ENDPOINT, sequence_length, event_name, predictor_name)
+    test_generator(data1, ages1, sexes1, data_fake1, ages_fake1, sexes_fake1, True, True, ENDPOINT, SEX, vocab_size, sequence_length)
+    
+    
+    analyse(data2, data_fake2, True, False, ENDPOINT, sequence_length, event_name, predictor_name)
+    test_generator(data2, ages2, sexes2, data_fake2, ages_fake2, sexes_fake2, True, False, ENDPOINT, SEX, vocab_size, sequence_length)
+
+
+    G.load_state_dict(torch.load(G_filename))
+    
+    
+    prefix = 'After:'
+    
+    data1, ages1, sexes1, data_fake1, ages_fake1, sexes_fake1 = get_real_and_fake_data(G, train, ignore_similar, dummy_batch_size, sequence_length, True)
+    
+    data2, ages2, sexes2, data_fake2, ages_fake2, sexes_fake2 = get_real_and_fake_data(G, val, ignore_similar, dummy_batch_size, sequence_length, True)
+
+    save_frequency_comparisons(data_fake1, data_fake2, vocab_size, ENDPOINT, prefix, N_max)    
+    
+
+
+    save_plots_of_train_scores(scores1_train, transition_scores_mean_train, similarity_score_train, indv_score_mean_train, transition_scores_train, indv_score_train, \
+    scores1_val, transition_scores_mean_val, similarity_score_val, indv_score_mean_val, transition_scores_val, indv_score_val, \
+    accuracies_real, accuracies_fake, ignore_time, sequence_length, vocab_size, ENDPOINT)
+
+
+    test_size = 10
+    visualize_output(G, test_size, val, sequence_length, ENDPOINT, SEX)
+    
+    analyse(data1, data_fake1, False, True, ENDPOINT, sequence_length, event_name, predictor_name)
+    test_generator(data1, ages1, sexes1, data_fake1, ages_fake1, sexes_fake1, False, True, ENDPOINT, SEX, vocab_size, sequence_length)
+    
+    
+    analyse(data2, data_fake2, False, False, ENDPOINT, sequence_length, event_name, predictor_name)
+    test_generator(data2, ages2, sexes2, data_fake2, ages_fake2, sexes_fake2, False, False, ENDPOINT, SEX, vocab_size, sequence_length)
+    
+    save(data1, data_fake1, train = True)
+    save(data2, data_fake2, train = False)
+
+    
+    
+    
+    
+    
 if __name__ == '__main__':
+    '''
     nrows = 3_000_000
     train, val, ENDPOINT, AGE, SEX, vocab_size, sequence_length, n_individuals = get_dataset(nrows = nrows)
     print('Data loaded, number of individuals:', n_individuals)
@@ -91,3 +166,6 @@ if __name__ == '__main__':
     data, ages, sexes, data_fake, ages_fake, sexes_fake = get_real_and_fake_data(G, train, ignore_similar, dummy_batch_size, sequence_length, True)
     
     test_generator(data, ages, sexes, data_fake, ages_fake, sexes_fake, False, True, ENDPOINT, SEX, vocab_size, sequence_length)
+    '''
+    
+    simulate_training()

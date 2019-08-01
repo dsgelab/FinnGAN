@@ -163,7 +163,7 @@ def optimise(kappa, n_runs, n_sub_runs, ignore_similar, score_type = 'general'):
     
     print('Data loaded, number of individuals:', n_individuals)
     
-    def objective_function(batch_size, lr):
+    def objective_function(batch_size, lr, temperature):
         
         try:
             batch_size = int(batch_size)
@@ -185,10 +185,10 @@ def optimise(kappa, n_runs, n_sub_runs, ignore_similar, score_type = 'general'):
                 )
                 
                 if score_type == 'general':
-                    score = -(dist_score[-1] + \
-                              transition_score[-1] + \
-                              similarity_score[-1] + \
-                              indv_score[-1])
+                    score = -(3 * dist_score[-1] + \
+                              4 * transition_score[-1] + \
+                              2 * similarity_score[-1] + \
+                              1 * indv_score[-1])
                 elif score_type == 'chd_and_br_cancer':
                     # minimize the transition score from chd to breast cancer
                     score = -transition_score_full[ \
@@ -215,6 +215,7 @@ def optimise(kappa, n_runs, n_sub_runs, ignore_similar, score_type = 'general'):
     pbounds = {
         'batch_size': (16, 256),
         'lr': (2, 8),
+        'temperature': (1, 1000),
     }
 
     optimizer = BayesianOptimization(
