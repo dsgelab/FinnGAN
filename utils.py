@@ -380,6 +380,7 @@ def get_individual_score(data, data_fake, separate, vocab_size, sequence_length)
 
 
 def save_grouped_barplot(freqs, freqs_fake, idx, field, title, N=10):
+    plt.style.use('classic')
     plt.style.use(plot_style)
     
     freqs1 = freqs.numpy()[idx]

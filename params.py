@@ -27,23 +27,6 @@ n_epochs = 10
 print_step = max(n_epochs // 10, 1)
 lr = 1e-4
 
-'''
-batch_size = 96
-#chi-squared_score = 0.029918
-embed_size = 8
-head_size = 20
-#indv_score = 0.124354
-lr = 1e-5
-mem_slots = 11
-n_embeddings = 6
-num_blocks = 3
-num_filters = 8
-num_heads = 17
-out_channels = 12
-#similarity_score = 0.077522
-temperature = 11
-#transition_score = 0.431095
-'''
 
 ignore_time = True
 dummy_batch_size = 256
@@ -74,6 +57,49 @@ general_params = [
 ]
 
 
+GAN_types = ['standard', 'feature matching', 'wasserstein', 'least squares']
+relativistic_average_options = [None, True, False]
+
+
 plot_style = 'seaborn'
 #plot_style = 'bmh'
 
+
+if not use_default_params:
+    if params_name == 'general':
+        parameters = general_params[1]['params']
+    elif params_name == 'br_cancer_and_chd':
+        parameters = br_cancer_and_chd_params['params']
+
+    batch_size = parameters['batch_size']
+    embed_size = parameters['embed_size']
+    head_size = parameters['head_size']
+    lr = parameters['lr']
+    mem_slots = parameters['mem_slots']
+    n_embeddings = parameters['n_embeddings']
+    num_blocks = parameters['num_blocks']
+    num_filters = parameters['num_filters']
+    num_heads = parameters['num_heads']
+    out_channels = parameters['out_channels']
+    temperature = parameters['temperature']
+    n_critic = parameters['n_critic']
+
+    batch_size = int(batch_size)
+    embed_size = int(embed_size)
+    head_size = int(head_size)
+    mem_slots = int(mem_slots)
+    n_embeddings = int(n_embeddings)
+    num_blocks = int(num_blocks)
+    num_filters = int(num_filters)
+    num_heads = int(num_heads)
+    out_channels = int(out_channels)
+    n_critic = int(n_critic)
+
+    filter_sizes = list(range(2, 2 + num_filters)) # values can be at most the sequence_length
+    lr = 10 ** (-lr)
+    
+    if 'GAN_type' in parameters:
+        GAN_type = GAN_types[int(parameters['GAN_type'])]
+    if 'relativistic_average' in parameters:
+        relativistic_average = relativistic_average_options[int(parameters['relativistic_average'])]
+    

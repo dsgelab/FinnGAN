@@ -161,9 +161,6 @@ def optimise(kappa, n_runs, n_sub_runs, ignore_similar, score_type = 'general'):
     
     train, val, ENDPOINT, AGE, SEX, vocab_size, sequence_length, n_individuals = get_dataset(nrows = 30_000_000)
     
-    #GAN_types = ['standard', 'feature matching', 'wasserstein', 'least squares']
-    #relativistic_average_options = [None, True, False]
-    
     print('Data loaded, number of individuals:', n_individuals)
     
     def objective_function(batch_size, lr):
