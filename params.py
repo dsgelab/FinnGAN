@@ -1,6 +1,17 @@
 max_sequence_length = 5
 
-endpoints = ['I9_HYPTENS', 'I9_ANGINA', 'I9_HEARTFAIL_NS', 'I9_STR_EXH', 'I9_CHD', 'C3_BREAST']
+endpoints = [
+    'I9_HYPTENS', 
+    'I9_ANGINA', 
+    'I9_HEARTFAIL_NS', 
+    'I9_STR_EXH', 
+    'I9_CHD', 
+    'C3_BREAST', 
+    'I9_MI', 
+    'L12_ATOPIC', 
+    'K11_IBD_STRICT', 
+    'G6_ALZHEIMER'
+]
 
 use_default_params = False
 
