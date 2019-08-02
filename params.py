@@ -2,7 +2,7 @@ max_sequence_length = 5
 
 endpoints = ['I9_HYPTENS', 'I9_ANGINA', 'I9_HEARTFAIL_NS', 'I9_STR_EXH', 'I9_CHD', 'C3_BREAST']
 
-use_default_params = True
+use_default_params = False
 
 
 # Generator params

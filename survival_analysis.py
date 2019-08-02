@@ -83,38 +83,51 @@ def get_survival_analysis_input(data, ENDPOINT, event_name, predictor_name):
 
 
 def analyse(data, data_fake, before, train, ENDPOINT, event_name, predictor_name):
+    plt.style.use(plot_style)
+    
     print()
     print('REAL:')
     surv_inp = get_survival_analysis_input(data, ENDPOINT, event_name, predictor_name)
     
     cph = CoxPHFitter()
-    cph.fit(surv_inp, duration_col='duration', event_col=event_name, show_progress=True)
+    cph.fit(surv_inp, duration_col='duration', event_col=event_name, show_progress=False)
     cph.print_summary()  # access the results using cph.summary
     #cph.check_assumptions(surv_inp, p_value_threshold=0.05, show_plots=False)
     #cph.plot_covariate_groups(predictor_name, [0, 1], plot_baseline=False)
     #plt.title(event_name + ' (real)')
     #plt.savefig('figs/{}_survival_real_{}.svg'.format('Before' if before else 'After', 'train' if train else 'val'))
     
+    X = pd.DataFrame(np.unique(surv_inp[predictor_name].values, axis=0), columns=[predictor_name])
+    
+    survival_functions = cph.predict_survival_function(X)
+    survival_functions.columns = [predictor_name + '={} (real)'.format(col) for col in survival_functions.columns]
     
     print()
     print('FAKE:')
     surv_inp = get_survival_analysis_input(data_fake, ENDPOINT, event_name, predictor_name)
 
     cph1 = CoxPHFitter()
-    cph1.fit(surv_inp, duration_col='duration', event_col=event_name, show_progress=True)
+    cph1.fit(surv_inp, duration_col='duration', event_col=event_name, show_progress=False)
     cph1.print_summary()  # access the results using cph.summary
     #cph1.check_assumptions(surv_inp, p_value_threshold=0.05, show_plots=False)
     
-    cph.plot_covariate_groups(predictor_name, [0, 1], plot_baseline=False)
-    cph1.plot_covariate_groups(predictor_name, [0, 1], plot_baseline=False, linestyle='--')
-    plt.legend()
+    survival_functions1 = cph1.predict_survival_function(X)
+    survival_functions1.columns = [predictor_name + '={} (fake)'.format(col) for col in survival_functions1.columns]
+    
+    res = pd.concat([survival_functions, survival_functions1], axis=1)
+    res.plot()
+    plt.title(event_name)
+    
+    #cph.plot_covariate_groups(predictor_name, [0, 1], plot_baseline=False)
+    #cph1.plot_covariate_groups(predictor_name, [0, 1], plot_baseline=False, linestyle='--')
+    #plt.legend()
     #plt.title(event_name + ' (fake)')
     #plt.savefig('figs/{}_survival_fake_{}.svg'.format('Before' if before else 'After', 'train' if train else 'val'))
-    plt.savefig('figs/survival_real_and_fake.jpeg')
+    plt.savefig('figs/{}_survival_real_and_fake_{}.jpeg'.format('Before' if before else 'After', 'train' if train else 'val'))
 
 
 if __name__ == '__main__':
-    nrows = 9_000_000
+    nrows = 300_000_000
     train, val, ENDPOINT, AGE, SEX, vocab_size, sequence_length, n_individuals = get_dataset(nrows = nrows)
     print('Data loaded, number of individuals:', n_individuals)
     
@@ -128,4 +141,8 @@ if __name__ == '__main__':
     
     data, data_fake = get_real_and_fake_data(G, train, ignore_similar, dummy_batch_size, sequence_length)
     
-    analyse(data, data_fake, None, None, ENDPOINT, event_name, predictor_name)
+    analyse(data, data_fake, False, True, ENDPOINT, event_name, predictor_name)
+    
+    data, data_fake = get_real_and_fake_data(G, val, ignore_similar, dummy_batch_size, sequence_length)
+    
+    analyse(data, data_fake, False, False, ENDPOINT, event_name, predictor_name)
