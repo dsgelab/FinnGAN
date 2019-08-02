@@ -197,6 +197,8 @@ def optimise(kappa, n_runs, n_sub_runs, ignore_similar, score_type = 'general'):
                 elif score_type == 'transition':
                     score = -transition_score[-1]
                     
+                if isnan(score):
+                    score = -10
                 
                 print('Score:', score)
                 
@@ -208,7 +210,7 @@ def optimise(kappa, n_runs, n_sub_runs, ignore_similar, score_type = 'general'):
     
         except RuntimeError as e:
             print(e)
-            return -100
+            return -10
     
     # Bounded region of parameter space
     pbounds = {
