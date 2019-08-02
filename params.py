@@ -10,7 +10,10 @@ endpoints = [
     'I9_MI', 
     'L12_ATOPIC', 
     'K11_IBD_STRICT', 
-    'G6_ALZHEIMER'
+    'G6_ALZHEIMER',
+    'HYPOTHY_LEVOTHY',
+    'J10_ASTHMA',
+    'T2D'
 ]
 
 use_default_params = False

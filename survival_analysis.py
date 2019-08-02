@@ -84,6 +84,7 @@ def get_survival_analysis_input(data, ENDPOINT, event_name, predictor_name):
 
 def analyse(data, data_fake, before, train, ENDPOINT, event_name, predictor_name):
     plt.style.use(plot_style)
+    plt.clf()
     
     print()
     print('REAL:')
@@ -115,8 +116,16 @@ def analyse(data, data_fake, before, train, ENDPOINT, event_name, predictor_name
     survival_functions1.columns = [predictor_name + '={} (fake)'.format(col) for col in survival_functions1.columns]
     
     res = pd.concat([survival_functions, survival_functions1], axis=1)
-    res.plot()
+    
+    plt.plot(res.iloc[:, 0], label=res.columns[0], linestyle='-', color='b')
+    plt.plot(res.iloc[:, 1], label=res.columns[1], linestyle='-', color='g')
+    plt.plot(res.iloc[:, 2], label=res.columns[2], linestyle='--', color='b')
+    plt.plot(res.iloc[:, 3], label=res.columns[3], linestyle='--', color='g')
+    plt.legend()
+    
     plt.title(event_name)
+    plt.ylabel('Survival probability' + ' of developing heart failure' if event_name == 'I9_HEARTFAIL_NS' else '')
+    plt.xlabel('Time (in years)')
     
     #cph.plot_covariate_groups(predictor_name, [0, 1], plot_baseline=False)
     #cph1.plot_covariate_groups(predictor_name, [0, 1], plot_baseline=False, linestyle='--')

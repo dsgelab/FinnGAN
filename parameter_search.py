@@ -216,7 +216,7 @@ def optimise(kappa, n_runs, n_sub_runs, ignore_similar, score_type = 'general'):
     pbounds = {
         'batch_size': (16, 256),
         'lr': (2, 8),
-        'temperature': (1, 1000),
+        'temperature': (1, 100),
     }
 
     optimizer = BayesianOptimization(
