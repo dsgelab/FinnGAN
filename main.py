@@ -71,16 +71,21 @@ def main():
     
     save_frequency_comparisons(data_fake1, data_fake2, vocab_size, ENDPOINT, prefix, N_max)   
     
-    event_name = 'I9_CHD'
-    predictor_name = 'C3_BREAST'
-    
-    analyse(data1, data_fake1, True, True, ENDPOINT, event_name, predictor_name)
     test_generator(data1, ages1, sexes1, data_fake1, ages_fake1, sexes_fake1, True, True, ENDPOINT, SEX, vocab_size, sequence_length)
     
-    
-    analyse(data2, data_fake2, True, False, ENDPOINT, event_name, predictor_name)
     test_generator(data2, ages2, sexes2, data_fake2, ages_fake2, sexes_fake2, True, False, ENDPOINT, SEX, vocab_size, sequence_length)
+    
+    predictor_name = 'C3_BREAST'
+    event_name = 'I9_CHD'
+    
+    analyse(data1, data_fake1, True, True, ENDPOINT, event_name, predictor_name)
+    analyse(data2, data_fake2, True, False, ENDPOINT, event_name, predictor_name)
 
+    predictor_name = 'I9_CHD'
+    event_name = 'I9_HEARTFAIL_NS'
+    
+    analyse(data1, data_fake1, True, True, ENDPOINT, event_name, predictor_name)
+    analyse(data2, data_fake2, True, False, ENDPOINT, event_name, predictor_name)
      
     G.train()
     
@@ -109,7 +114,6 @@ def main():
     save_frequency_comparisons(data_fake1, data_fake2, vocab_size, ENDPOINT, prefix, N_max)    
     
 
-
     save_plots_of_train_scores(scores1_train, transition_scores_mean_train, similarity_score_train, indv_score_mean_train, transition_scores_train, indv_score_train, \
     scores1_val, transition_scores_mean_val, similarity_score_val, indv_score_mean_val, transition_scores_val, indv_score_val, \
     accuracies_real, accuracies_fake, ignore_time, sequence_length, vocab_size, ENDPOINT)
@@ -120,12 +124,22 @@ def main():
     
     torch.save(G.state_dict(), G_filename)
     
-    analyse(data1, data_fake1, False, True, ENDPOINT, event_name, predictor_name)
+    
     test_generator(data1, ages1, sexes1, data_fake1, ages_fake1, sexes_fake1, False, True, ENDPOINT, SEX, vocab_size, sequence_length)
     
-    
-    analyse(data2, data_fake2, False, False, ENDPOINT, event_name, predictor_name)
     test_generator(data2, ages2, sexes2, data_fake2, ages_fake2, sexes_fake2, False, False, ENDPOINT, SEX, vocab_size, sequence_length)
+    
+    predictor_name = 'C3_BREAST'
+    event_name = 'I9_CHD'
+    
+    analyse(data1, data_fake1, False, True, ENDPOINT, event_name, predictor_name)
+    analyse(data2, data_fake2, False, False, ENDPOINT, event_name, predictor_name)
+    
+    predictor_name = 'I9_CHD'
+    event_name = 'I9_HEARTFAIL_NS'
+    
+    analyse(data1, data_fake1, False, True, ENDPOINT, event_name, predictor_name)
+    analyse(data2, data_fake2, False, False, ENDPOINT, event_name, predictor_name)
     
     save(data1, data_fake1, train = True)
     save(data2, data_fake2, train = False)

@@ -123,7 +123,7 @@ def analyse(data, data_fake, before, train, ENDPOINT, event_name, predictor_name
     #plt.legend()
     #plt.title(event_name + ' (fake)')
     #plt.savefig('figs/{}_survival_fake_{}.svg'.format('Before' if before else 'After', 'train' if train else 'val'))
-    plt.savefig('figs/{}_survival_real_and_fake_{}.jpeg'.format('Before' if before else 'After', 'train' if train else 'val'))
+    plt.savefig('figs/{}_survival_{}->{}_{}.jpeg'.format('Before' if before else 'After', predictor_name, event_name, 'train' if train else 'val'))
 
 
 if __name__ == '__main__':
