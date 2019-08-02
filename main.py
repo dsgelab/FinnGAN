@@ -74,11 +74,11 @@ def main():
     event_name = 'I9_CHD'
     predictor_name = 'C3_BREAST'
     
-    analyse(data1, data_fake1, True, True, ENDPOINT, sequence_length, event_name, predictor_name)
+    analyse(data1, data_fake1, True, True, ENDPOINT, event_name, predictor_name)
     test_generator(data1, ages1, sexes1, data_fake1, ages_fake1, sexes_fake1, True, True, ENDPOINT, SEX, vocab_size, sequence_length)
     
     
-    analyse(data2, data_fake2, True, False, ENDPOINT, sequence_length, event_name, predictor_name)
+    analyse(data2, data_fake2, True, False, ENDPOINT, event_name, predictor_name)
     test_generator(data2, ages2, sexes2, data_fake2, ages_fake2, sexes_fake2, True, False, ENDPOINT, SEX, vocab_size, sequence_length)
 
      
@@ -120,11 +120,11 @@ def main():
     
     torch.save(G.state_dict(), G_filename)
     
-    analyse(data1, data_fake1, False, True, ENDPOINT, sequence_length, event_name, predictor_name)
+    analyse(data1, data_fake1, False, True, ENDPOINT, event_name, predictor_name)
     test_generator(data1, ages1, sexes1, data_fake1, ages_fake1, sexes_fake1, False, True, ENDPOINT, SEX, vocab_size, sequence_length)
     
     
-    analyse(data2, data_fake2, False, False, ENDPOINT, sequence_length, event_name, predictor_name)
+    analyse(data2, data_fake2, False, False, ENDPOINT, event_name, predictor_name)
     test_generator(data2, ages2, sexes2, data_fake2, ages_fake2, sexes_fake2, False, False, ENDPOINT, SEX, vocab_size, sequence_length)
     
     save(data1, data_fake1, train = True)

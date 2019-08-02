@@ -7,10 +7,11 @@ from relational_rnn_models import RelationalMemoryGenerator
 from lifelines import CoxPHFitter
 import matplotlib.pyplot as plt
 
-def get_survival_analysis_input(data, ENDPOINT, event_name, predictor_name, sequence_length):
+def get_survival_analysis_input(data, ENDPOINT, event_name, predictor_name):
     event_i = ENDPOINT.vocab.stoi[event_name]
     predictor_i = ENDPOINT.vocab.stoi[predictor_name]
     
+    sequence_length = data.shape[1]
     col_idx = torch.arange(sequence_length)
     
     n = data.shape[0]
@@ -81,58 +82,44 @@ def get_survival_analysis_input(data, ENDPOINT, event_name, predictor_name, sequ
     
 
 
-def analyse(data, data_fake, before, train, ENDPOINT, sequence_length, event_name, predictor_name):
+def analyse(data, data_fake, before, train, ENDPOINT, event_name, predictor_name):
     print()
     print('REAL:')
-    surv_inp = get_survival_analysis_input(data, ENDPOINT, event_name, predictor_name, sequence_length)
+    surv_inp = get_survival_analysis_input(data, ENDPOINT, event_name, predictor_name)
     
     cph = CoxPHFitter()
     cph.fit(surv_inp, duration_col='duration', event_col=event_name, show_progress=True)
     cph.print_summary()  # access the results using cph.summary
     #cph.check_assumptions(surv_inp, p_value_threshold=0.05, show_plots=False)
-    cph.plot_covariate_groups(predictor_name, [0, 1])
-    plt.title(event_name + ' (real)')
-    plt.savefig('figs/{}_survival_real_{}.svg'.format('Before' if before else 'After', 'train' if train else 'val'))
+    #cph.plot_covariate_groups(predictor_name, [0, 1], plot_baseline=False)
+    #plt.title(event_name + ' (real)')
+    #plt.savefig('figs/{}_survival_real_{}.svg'.format('Before' if before else 'After', 'train' if train else 'val'))
     
     
     print()
     print('FAKE:')
-    surv_inp = get_survival_analysis_input(data_fake, ENDPOINT, event_name, predictor_name, sequence_length)
+    surv_inp = get_survival_analysis_input(data_fake, ENDPOINT, event_name, predictor_name)
 
-    cph = CoxPHFitter()
-    cph.fit(surv_inp, duration_col='duration', event_col=event_name, show_progress=True)
-    cph.print_summary()  # access the results using cph.summary
-    #cph.check_assumptions(surv_inp, p_value_threshold=0.05, show_plots=False)
-    cph.plot_covariate_groups(predictor_name, [0, 1])
-    plt.title(event_name + ' (fake)')
-    plt.savefig('figs/{}_survival_fake_{}.svg'.format('Before' if before else 'After', 'train' if train else 'val'))
+    cph1 = CoxPHFitter()
+    cph1.fit(surv_inp, duration_col='duration', event_col=event_name, show_progress=True)
+    cph1.print_summary()  # access the results using cph.summary
+    #cph1.check_assumptions(surv_inp, p_value_threshold=0.05, show_plots=False)
+    
+    cph.plot_covariate_groups(predictor_name, [0, 1], plot_baseline=False)
+    cph1.plot_covariate_groups(predictor_name, [0, 1], plot_baseline=False, linestyle='--')
+    plt.legend()
+    #plt.title(event_name + ' (fake)')
+    #plt.savefig('figs/{}_survival_fake_{}.svg'.format('Before' if before else 'After', 'train' if train else 'val'))
+    plt.savefig('figs/survival_real_and_fake.jpeg')
 
 
 if __name__ == '__main__':
-    nrows = 60_000_000
+    nrows = 9_000_000
     train, val, ENDPOINT, AGE, SEX, vocab_size, sequence_length, n_individuals = get_dataset(nrows = nrows)
     print('Data loaded, number of individuals:', n_individuals)
     
-    event_name = 'I9_CHD'
-    predictor_name = 'C3_BREAST'
-    
-    if params_name == 'general':
-        parameters = general_params['params']
-    elif params_name == 'br_cancer_and_chd':
-        parameters = br_cancer_and_chd_params['params']
-    
-    embed_size = parameters['embed_size']
-    head_size = parameters['head_size']
-    mem_slots = parameters['mem_slots']
-    num_blocks = parameters['num_blocks']
-    num_heads = parameters['num_heads']
-    temperature = parameters['temperature']
-    
-    embed_size = int(embed_size)
-    head_size = int(head_size)
-    mem_slots = int(mem_slots)
-    num_blocks = int(num_blocks)
-    num_heads = int(num_heads)
+    predictor_name = 'I9_CHD'
+    event_name = 'I9_HEARTFAIL_NS'
 
     G = RelationalMemoryGenerator(mem_slots, head_size, embed_size, vocab_size, temperature, num_heads, num_blocks)
     G.load_state_dict(torch.load(G_filename))
@@ -141,4 +128,4 @@ if __name__ == '__main__':
     
     data, data_fake = get_real_and_fake_data(G, train, ignore_similar, dummy_batch_size, sequence_length)
     
-    analyse(data, data_fake, True, ENDPOINT, sequence_length, event_name, predictor_name)
+    analyse(data, data_fake, None, None, ENDPOINT, event_name, predictor_name)
