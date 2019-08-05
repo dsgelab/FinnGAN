@@ -75,14 +75,14 @@ def main():
     
     test_generator(data2, ages2, sexes2, data_fake2, ages_fake2, sexes_fake2, True, False, ENDPOINT, SEX, vocab_size, sequence_length)
     
-    predictor_name = 'C3_BREAST'
-    event_name = 'I9_CHD'
+    predictor_name = 'I9_STR_EXH'
+    event_name = 'I9_HEARTFAIL_NS'
     
     analyse(data1, data_fake1, True, True, ENDPOINT, event_name, predictor_name)
     analyse(data2, data_fake2, True, False, ENDPOINT, event_name, predictor_name)
 
-    predictor_name = 'I9_CHD'
-    event_name = 'I9_HEARTFAIL_NS'
+    predictor_name = 'I9_ANGINA'
+    event_name = 'I9_HYPTENS'
     
     analyse(data1, data_fake1, True, True, ENDPOINT, event_name, predictor_name)
     analyse(data2, data_fake2, True, False, ENDPOINT, event_name, predictor_name)
@@ -129,14 +129,14 @@ def main():
     
     test_generator(data2, ages2, sexes2, data_fake2, ages_fake2, sexes_fake2, False, False, ENDPOINT, SEX, vocab_size, sequence_length)
     
-    predictor_name = 'C3_BREAST'
-    event_name = 'I9_CHD'
+    predictor_name = 'I9_STR_EXH'
+    event_name = 'I9_HEARTFAIL_NS'
     
     analyse(data1, data_fake1, False, True, ENDPOINT, event_name, predictor_name)
     analyse(data2, data_fake2, False, False, ENDPOINT, event_name, predictor_name)
     
-    predictor_name = 'I9_CHD'
-    event_name = 'I9_HEARTFAIL_NS'
+    predictor_name = 'I9_ANGINA'
+    event_name = 'I9_HYPTENS'
     
     analyse(data1, data_fake1, False, True, ENDPOINT, event_name, predictor_name)
     analyse(data2, data_fake2, False, False, ENDPOINT, event_name, predictor_name)
