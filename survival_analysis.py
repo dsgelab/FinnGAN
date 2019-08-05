@@ -139,9 +139,6 @@ if __name__ == '__main__':
     nrows = 300_000_000
     train, val, ENDPOINT, AGE, SEX, vocab_size, sequence_length, n_individuals = get_dataset(nrows = nrows)
     print('Data loaded, number of individuals:', n_individuals)
-    
-    predictor_name = 'I9_CHD'
-    event_name = 'I9_HEARTFAIL_NS'
 
     G = RelationalMemoryGenerator(mem_slots, head_size, embed_size, vocab_size, temperature, num_heads, num_blocks)
     G.load_state_dict(torch.load(G_filename))
@@ -149,9 +146,13 @@ if __name__ == '__main__':
     G.eval()
     
     data, data_fake = get_real_and_fake_data(G, train, ignore_similar, dummy_batch_size, sequence_length)
-    
-    analyse(data, data_fake, False, True, ENDPOINT, event_name, predictor_name)
-    
     data, data_fake = get_real_and_fake_data(G, val, ignore_similar, dummy_batch_size, sequence_length)
     
-    analyse(data, data_fake, False, False, ENDPOINT, event_name, predictor_name)
+    for predictor_i in range(3, vocab_size):
+        for event_i in range(3, vocab_size):
+            predictor_name = ENDPOINT.vocab.itos[predictor_i]
+            event_name = ENDPOINT.vocab.itos[event_i]
+
+            if event_name != predictor_name:
+                analyse(data, data_fake, False, True, ENDPOINT, event_name, predictor_name)
+                analyse(data, data_fake, False, False, ENDPOINT, event_name, predictor_name)
