@@ -49,7 +49,7 @@ def get_modified_batch(batch, ENDPOINT, n = 10):
             
             
 
-def pretrain_generator(G, train, batch_size, vocab_size, sequence_length, n_epochs, lr, print_step = 10):
+def pretrain_generator(G, train, batch_size, vocab_size, sequence_length, n_epochs, lr, ENDPOINT, print_step = 10):
     loss_function = nn.BCELoss()
     optimizer = torch.optim.Adam(G.parameters(), lr=lr)
     
@@ -115,7 +115,7 @@ def train_GAN(G, D, train, val, ENDPOINT, batch_size, vocab_size, sequence_lengt
     scores_val.append(score)
     
     print('pretraining generator...')
-    pretrain_generator(G, train, batch_size, vocab_size, sequence_length, max(n_epochs // 10, 1), lr * 100, print_step = max(n_epochs // 10 - 1, 1))
+    pretrain_generator(G, train, batch_size, vocab_size, sequence_length, max(n_epochs // 10, 1), lr * 100, ENDPOINT, print_step = max(n_epochs // 10 - 1, 1))
     print('pretraining complete')
     
     if not searching:
