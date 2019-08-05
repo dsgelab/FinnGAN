@@ -60,7 +60,7 @@ def pretrain_generator(G, train, batch_size, vocab_size, sequence_length, n_epoc
             )
 
             
-def get_modified_batch(batch, ENDPOINT, n = 2):
+def get_modified_batch(batch, ENDPOINT, n = 10):
     data = batch.ENDPOINT.transpose(0, 1).cpu()
     None_i = ENDPOINT.vocab.stoi['None']
     res = [data]
