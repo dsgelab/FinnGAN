@@ -36,7 +36,7 @@ def str_to_datetime(string):
 def reduce_icd(icd_full):
     return icd_full[:2]
 
-def get_distribution(data, field, vocab_size, fake = True):
+def get_distribution(data, field, vocab_size, fake = True, eps = 1e-20):
     counts = torch.zeros(vocab_size - 2)
 
     for i in range(2, vocab_size):
@@ -45,7 +45,7 @@ def get_distribution(data, field, vocab_size, fake = True):
         else:
             counts[i - 2] = field.vocab.freqs[field.vocab.itos[i]]
 
-    freqs = counts / torch.sum(counts)
+    freqs = counts / (torch.sum(counts) + eps)
     
     return counts, freqs
 
@@ -232,17 +232,15 @@ def get_real_and_fake_data(G, dataset, ignore_similar, batch_size, sequence_leng
     return data, data_fake
 
 # More interpretable version of chi_sqrd_dist
-def get_diffs(dist, target, separate = False):
+def get_diffs(dist, target, separate = False, eps = 1e-20):
     abs_diffs = torch.abs(dist - target)
     
-    #max_abs_diffs, _ = torch.stack([torch.ones(target.shape) - target, target], dim = 1).max(dim = 1)
-    
-    relative_diffs = abs_diffs #/ max_abs_diffs
+    relative_diffs = abs_diffs / (target + eps)
     
     if separate:
         return relative_diffs
     
-    return relative_diffs.mean()
+    return relative_diffs.median()
 
     
 def chi_sqrd_dist(counts1, counts2, separate = False, eps = 1e-20):
@@ -277,12 +275,12 @@ def get_score(data_fake, ENDPOINT, vocab_size):
     score = get_diffs(freqs_fake, freqs_real)
     return score
 
-def get_transition_score(data, data_fake, d, ignore_time, separate, vocab_size):
+def get_transition_score(data, data_fake, d, ignore_time, separate, vocab_size, eps = 1e-20):
     transition_freq_real = get_transition_matrix(data, vocab_size, d, ignore_time)
     transition_freq_fake = get_transition_matrix(data_fake, vocab_size, d, ignore_time)
     
     if ignore_time:
-        res = (transition_freq_real - transition_freq_fake).abs()
+        res = (transition_freq_real - transition_freq_fake).abs() / (transition_freq_real + eps)
                 
         if separate:
             return res
@@ -462,7 +460,7 @@ def get_scores(G, ENDPOINT, dataset, batch_size, ignore_time, separate1, separat
     
     G.train()
     
-    return score1, transition_score.mean(), similarity_score, indv_score.mean(), transition_score, indv_score
+    return score1, transition_score.median(), similarity_score, indv_score.mean(), transition_score, indv_score
 
 
 def get_dataset(nrows = 3_000_000):
