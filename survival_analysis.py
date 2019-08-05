@@ -86,6 +86,15 @@ def analyse(data, data_fake, before, train, ENDPOINT, event_name, predictor_name
     plt.style.use(plot_style)
     plt.clf()
     
+    clean_names = {
+        'I9_HEARTFAIL_NS': 'heart failure',
+        'I9_HYPTENS': 'hypertension',
+        'I9_STR_EXH': 'stroke',
+        'C3_BREAST': 'breast cancer',
+        'I9_CHD': 'CHD',
+        'I9_ANGINA': 'angina'
+    }
+    
     print()
     print('REAL:')
     surv_inp = get_survival_analysis_input(data, ENDPOINT, event_name, predictor_name)
@@ -101,7 +110,7 @@ def analyse(data, data_fake, before, train, ENDPOINT, event_name, predictor_name
     X = pd.DataFrame(np.unique(surv_inp[predictor_name].values, axis=0), columns=[predictor_name])
     
     survival_functions = cph.predict_survival_function(X)
-    survival_functions.columns = [predictor_name + '={} (real)'.format(col) for col in survival_functions.columns]
+    survival_functions.columns = [(clean_names[predictor_name] if predictor_name in clean_names else predictor_name) + ' = {} (real)'.format(col) for col in survival_functions.columns]
     
     print()
     print('FAKE:')
@@ -113,7 +122,7 @@ def analyse(data, data_fake, before, train, ENDPOINT, event_name, predictor_name
     #cph1.check_assumptions(surv_inp, p_value_threshold=0.05, show_plots=False)
     
     survival_functions1 = cph1.predict_survival_function(X)
-    survival_functions1.columns = [predictor_name + '={} (fake)'.format(col) for col in survival_functions1.columns]
+    survival_functions1.columns = [(clean_names[predictor_name] if predictor_name in clean_names else predictor_name) + ' = {} (synthetic)'.format(col) for col in survival_functions1.columns]
     
     res = pd.concat([survival_functions, survival_functions1], axis=1)
     
@@ -124,7 +133,7 @@ def analyse(data, data_fake, before, train, ENDPOINT, event_name, predictor_name
     plt.legend()
     
     plt.title(event_name)
-    plt.ylabel('Survival probability' + ' of developing heart failure' if event_name == 'I9_HEARTFAIL_NS' else '')
+    plt.ylabel('Survival probability of developing {}'.format(clean_names[event_name] if event_name in clean_names else event_name))
     plt.xlabel('Time (in years)')
     
     #cph.plot_covariate_groups(predictor_name, [0, 1], plot_baseline=False)
@@ -145,9 +154,22 @@ if __name__ == '__main__':
     
     G.eval()
     
-    data, data_fake = get_real_and_fake_data(G, train, ignore_similar, dummy_batch_size, sequence_length)
+    data_train, data_fake_train = get_real_and_fake_data(G, train, ignore_similar, dummy_batch_size, sequence_length)
     data, data_fake = get_real_and_fake_data(G, val, ignore_similar, dummy_batch_size, sequence_length)
     
+    predictor_name = 'I9_STR_EXH'
+    event_name = 'I9_HEARTFAIL_NS'
+    
+    analyse(data_train, data_fake_train, False, True, ENDPOINT, event_name, predictor_name)
+    analyse(data, data_fake, False, False, ENDPOINT, event_name, predictor_name)
+    
+    predictor_name = 'I9_ANGINA'
+    event_name = 'I9_HYPTENS'
+    
+    analyse(data_train, data_fake_train, False, True, ENDPOINT, event_name, predictor_name)
+    analyse(data, data_fake, False, False, ENDPOINT, event_name, predictor_name)
+    
+    '''
     for predictor_i in range(3, vocab_size):
         for event_i in range(3, vocab_size):
             predictor_name = ENDPOINT.vocab.itos[predictor_i]
@@ -156,3 +178,4 @@ if __name__ == '__main__':
             if event_name != predictor_name:
                 analyse(data, data_fake, False, True, ENDPOINT, event_name, predictor_name)
                 analyse(data, data_fake, False, False, ENDPOINT, event_name, predictor_name)
+    '''
