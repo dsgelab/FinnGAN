@@ -60,7 +60,7 @@ def main():
         print("Using 1 GPU")
     '''
         
-    N_max = 10
+    N_max = 11
     prefix = 'Before:'
     
     G.eval()

@@ -340,6 +340,7 @@ def get_similarity_score(data1, data2, separate):
 def robust_get_similarity_score(data1, data2, batch_size, separate):
     lis = []
     
+    # TODO: visualize/print the reduction in size
     data2 = data2.unique(dim = 0)
         
     for i in range(0, data1.shape[0], batch_size):
@@ -422,7 +423,7 @@ def save_relative_and_absolute(freqs, freqs_fake, counts, counts_fake, vocab_siz
     if N == vocab_size - 2:
         idx = np.arange(N)
         
-        title = prefix + 'Differences in frequencies'
+        title = prefix + 'frequencies'
         save_grouped_barplot(freqs, freqs_fake, idx, field, title, N)
     else:
         abs_diffs = np.abs(freqs - freqs_fake)

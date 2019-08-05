@@ -16,7 +16,8 @@ endpoints = [
     'T2D'
 ]
 
-use_default_params = False
+use_default_params = True
+use_optimal_bs_and_lr = True
 
 
 # Generator params
@@ -44,6 +45,8 @@ print_step = max(n_epochs // 10, 1)
 lr = 10 ** (-6.864947029352897)
 
 
+
+
 ignore_time = True
 dummy_batch_size = 256
 dummy_batch_size2 = 10000
@@ -54,7 +57,7 @@ GAN_type = 'feature matching'
 one_sided_label_smoothing = True
 relativistic_average = None
 
-params_name = 'general'
+params_name = 'transition'
     
 G_filename = 'models/{}_{}_{}_model.pt'.format(params_name, GAN_type, relativistic_average)
 
@@ -73,6 +76,14 @@ general_params = [
     
 ]
 
+transition_params = [
+    {'target': -0.018841540440917015, 'params': {'batch_size': 48.662565212045955, 'lr': 5.829709737290266, 'temperature': 664.256731903}},
+     
+]
+
+general_params1 = [
+    {'target': -0.5692319273948669, 'params': {'batch_size': 97.62833563120961, 'lr': 7.097719647690072, 'temperature': 112.2618950139476}},
+]
 
 GAN_types = ['standard', 'feature matching', 'wasserstein', 'least squares']
 relativistic_average_options = [None, True, False]
@@ -119,4 +130,16 @@ if not use_default_params:
         GAN_type = GAN_types[int(parameters['GAN_type'])]
     if 'relativistic_average' in parameters:
         relativistic_average = relativistic_average_options[int(parameters['relativistic_average'])]
+    
+if use_optimal_bs_and_lr:
+    if params_name == 'general':
+        parameters = general_params1[0]['params']
+    elif params_name == 'transition':
+        parameters = transition_params[0]['params']
+
+    batch_size = parameters['batch_size']
+    lr = parameters['lr']
+    temperature = parameters['temperature']
+    
+    batch_size = int(batch_size)
     
