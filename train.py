@@ -61,7 +61,7 @@ def pretrain_generator(G, train, batch_size, vocab_size, sequence_length, n_epoc
 
             
 def get_modified_batch(batch, ENDPOINT, n = 2):
-    data = batch.ENDPOINT.transpose(0, 1)
+    data = batch.ENDPOINT.transpose(0, 1).cpu()
     None_i = ENDPOINT.vocab.stoi['None']
     res = [data]
     
@@ -81,6 +81,11 @@ def get_modified_batch(batch, ENDPOINT, n = 2):
     
     ages = batch.AGE.repeat(n + 1)
     sexes = batch.SEX.view(-1).repeat(n + 1)
+    
+    if cuda:
+        res = res.cuda()
+        ages = ages.cuda()
+        sexes = sexes.cuda()
     
     return res, ages, sexes
             
