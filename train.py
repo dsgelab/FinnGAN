@@ -4,6 +4,7 @@ import torchtext
 from torchtext.data import Field, Iterator, Dataset, Example
 from utils import *
 from math import isnan
+import numpy as np
 
 
 cuda = torch.cuda.is_available()
@@ -58,6 +59,34 @@ def pretrain_generator(G, train, batch_size, vocab_size, sequence_length, n_epoc
                 % (e, n_epochs, loss_total / count)
             )
 
+            
+def get_modified_batch(batch, ENDPOINT, n = 2):
+    data = batch.ENDPOINT.transpose(0, 1)
+    None_i = ENDPOINT.vocab.stoi['None']
+    res = [data]
+    
+    for _ in range(n):
+        tmp = torch.empty(data.shape).fill_(None_i).type(data.dtype)
+        for indv_i, indv in enumerate(data):
+            endpoints_not_None = indv[indv != None_i]
+            
+            if endpoints_not_None.shape[0] > 0:
+                np_idx = np.sort(np.random.choice(np.arange(data.shape[1]), size = endpoints_not_None.shape[0], replace = False))
+                idx = torch.from_numpy(np_idx)
+                tmp[indv_i, idx] = endpoints_not_None
+            
+        res.append(tmp)
+        
+    res = torch.cat(res)
+    
+    ages = batch.AGE.repeat(n + 1)
+    sexes = batch.SEX.view(-1).repeat(n + 1)
+    
+    return res, ages, sexes
+            
+            
+            
+            
 # Define the training function
             
 # GAN_type is one of ['standard', 'feature matching', 'wasserstein', 'least squares']
@@ -128,7 +157,8 @@ def train_GAN(G, D, train, val, ENDPOINT, batch_size, vocab_size, sequence_lengt
         #count = 0
         
         for batch in train_iter:
-            train_data = batch.ENDPOINT.transpose(0, 1)
+            train_data, ages, sexes = get_modified_batch(batch, ENDPOINT)
+            #train_data = batch.ENDPOINT.transpose(0, 1)
             train_data_one_hot = F.one_hot(train_data, vocab_size).type(Tensor)
 
             start_token = train_data[:, :1]
@@ -145,21 +175,21 @@ def train_GAN(G, D, train, val, ENDPOINT, batch_size, vocab_size, sequence_lengt
                 #memory = memory.cuda()
 
             temp = temperature ** ((e + 1) / (n_epochs * n_critic))
-            fake_one_hot, _, _ = G(start_token, batch.AGE, batch.SEX.view(-1), None, sequence_length, temp)
+            fake_one_hot, _, _ = G(start_token, ages, sexes, None, sequence_length, temp)
             
             if e % n_critic == 0:
                 # Loss measures generator's ability to fool the discriminator
                 if GAN_type == 'feature matching':
-                    D_out_fake = D(fake_one_hot, batch.AGE, batch.SEX.view(-1), feature_matching = True).mean(dim = 0)
-                    D_out_real = D(train_data_one_hot.detach(), batch.AGE, batch.SEX.view(-1), feature_matching = True).mean(dim = 0)
+                    D_out_fake = D(fake_one_hot, ages, sexes, feature_matching = True).mean(dim = 0)
+                    D_out_real = D(train_data_one_hot.detach(), ages, sexes, feature_matching = True).mean(dim = 0)
 
                 elif GAN_type == 'standard' and relativistic_average is None:
-                    D_out_fake = D(fake_one_hot, batch.AGE, batch.SEX.view(-1))
-                    D_out_real = D(train_data_one_hot.detach(), batch.AGE, batch.SEX.view(-1))
+                    D_out_fake = D(fake_one_hot, ages, sexes)
+                    D_out_real = D(train_data_one_hot.detach(), ages, sexes)
 
                 elif GAN_type in ['least squares', 'wasserstein'] or relativistic_average is not None:
-                    D_out_fake = D(fake_one_hot, batch.AGE, batch.SEX.view(-1), return_critic = True)
-                    D_out_real = D(train_data_one_hot.detach(), batch.AGE, batch.SEX.view(-1), return_critic = True)
+                    D_out_fake = D(fake_one_hot, ages, sexes, return_critic = True)
+                    D_out_real = D(train_data_one_hot.detach(), ages, sexes, return_critic = True)
 
 
                 if GAN_type == 'feature matching':
@@ -188,11 +218,11 @@ def train_GAN(G, D, train, val, ENDPOINT, batch_size, vocab_size, sequence_lengt
 
             # Measure discriminator's ability to classify real from generated samples
             if GAN_type in ['least squares', 'wasserstein'] or relativistic_average is not None:
-                D_out_real = D(train_data_one_hot, batch.AGE, batch.SEX.view(-1), return_critic = True).view(-1)
-                D_out_fake = D(fake_one_hot.detach(), batch.AGE, batch.SEX.view(-1), return_critic = True).view(-1)
+                D_out_real = D(train_data_one_hot, ages, sexes, return_critic = True).view(-1)
+                D_out_fake = D(fake_one_hot.detach(), ages, sexes, return_critic = True).view(-1)
             else:
-                D_out_real = D(train_data_one_hot, batch.AGE, batch.SEX.view(-1)).view(-1)
-                D_out_fake = D(fake_one_hot.detach(), batch.AGE, batch.SEX.view(-1)).view(-1)
+                D_out_real = D(train_data_one_hot, ages, sexes).view(-1)
+                D_out_fake = D(fake_one_hot.detach(), ages, sexes).view(-1)
             
             
             if GAN_type in ['least squares', 'wasserstein'] or relativistic_average is not None:
@@ -284,3 +314,11 @@ def train_GAN(G, D, train, val, ENDPOINT, batch_size, vocab_size, sequence_lengt
         output[j] = torch.stack(output[j])
             
     return tuple(output)
+
+
+
+if __name__ == '__main__':
+    nrows = 1_000_000
+    train, val, ENDPOINT, AGE, SEX, vocab_size, sequence_length, n_individuals = get_dataset(nrows = nrows)
+    
+    print(get_modified_batch(next(iter(Iterator(val, batch_size = 5))), ENDPOINT))
