@@ -16,48 +16,6 @@ Tensor = torch.cuda.FloatTensor if cuda else torch.FloatTensor
 
 # Define the generator pre-train function
 
-def pretrain_generator(G, train, batch_size, vocab_size, sequence_length, n_epochs, lr, print_step = 10):
-    loss_function = nn.BCELoss()
-    optimizer = torch.optim.Adam(G.parameters(), lr=lr)
-    
-    if cuda:
-        G.cuda()
-        loss_function.cuda()
-    
-    for e in range(n_epochs):
-        train_iter = Iterator(train, batch_size = batch_size, device = device)
-        loss_total = 0
-        count = 0
-        
-        for batch in train_iter:
-            train_data = batch.ENDPOINT.transpose(0, 1)
-            train_data_one_hot = F.one_hot(train_data, vocab_size).type(Tensor)
-            
-            start_token = train_data[:, :1]
-            optimizer.zero_grad()
-
-            #memory = G.initial_state(batch_size = train_data.shape[0])
-
-            if cuda:
-                start_token = start_token.cuda()
-                #memory = memory.cuda()
-                
-            logits, _, _ = G(start_token, batch.AGE, batch.SEX.view(-1), None, sequence_length, 1.0)
-
-            loss = loss_function(logits, train_data_one_hot)
-            
-            loss_total += loss.item()
-            count += 1
-
-            loss.backward()
-            optimizer.step()
-            
-        
-        if (e + 1) % print_step == 0:
-            print(
-                "[Epoch %d/%d] [G loss: %f]"
-                % (e, n_epochs, loss_total / count)
-            )
 
             
 def get_modified_batch(batch, ENDPOINT, n = 10):
@@ -90,6 +48,51 @@ def get_modified_batch(batch, ENDPOINT, n = 10):
     return res, ages, sexes
             
             
+
+def pretrain_generator(G, train, batch_size, vocab_size, sequence_length, n_epochs, lr, print_step = 10):
+    loss_function = nn.BCELoss()
+    optimizer = torch.optim.Adam(G.parameters(), lr=lr)
+    
+    if cuda:
+        G.cuda()
+        loss_function.cuda()
+    
+    for e in range(n_epochs):
+        train_iter = Iterator(train, batch_size = batch_size, device = device)
+        loss_total = 0
+        count = 0
+        
+        for batch in train_iter:
+            train_data, ages, sexes = get_modified_batch(batch, ENDPOINT)
+            #train_data = batch.ENDPOINT.transpose(0, 1)
+            train_data_one_hot = F.one_hot(train_data, vocab_size).type(Tensor)
+            
+            start_token = train_data[:, :1]
+            optimizer.zero_grad()
+
+            #memory = G.initial_state(batch_size = train_data.shape[0])
+
+            if cuda:
+                start_token = start_token.cuda()
+                #memory = memory.cuda()
+                
+            logits, _, _ = G(start_token, ages, sexes, None, sequence_length, 1.0)
+
+            loss = loss_function(logits, train_data_one_hot)
+            
+            loss_total += loss.item()
+            count += 1
+
+            loss.backward()
+            optimizer.step()
+            
+        
+        if (e + 1) % print_step == 0:
+            print(
+                "[Epoch %d/%d] [G loss: %f]"
+                % (e, n_epochs, loss_total / count)
+            )
+
             
             
 # Define the training function
