@@ -132,7 +132,7 @@ def analyse(data, data_fake, before, train, ENDPOINT, event_name, predictor_name
     plt.plot(res.iloc[:, 3], label=res.columns[3], linestyle='--', color='g')
     plt.legend()
     
-    plt.title(event_name)
+    #plt.title(clean_names[event_name] if event_name in clean_names else event_name)
     plt.ylabel('Survival probability of developing {}'.format(clean_names[event_name] if event_name in clean_names else event_name))
     plt.xlabel('Time (in years)')
     
@@ -145,7 +145,7 @@ def analyse(data, data_fake, before, train, ENDPOINT, event_name, predictor_name
 
 
 if __name__ == '__main__':
-    nrows = 300_000_000
+    nrows = 30_000_000
     train, val, ENDPOINT, AGE, SEX, vocab_size, sequence_length, n_individuals = get_dataset(nrows = nrows)
     print('Data loaded, number of individuals:', n_individuals)
 
