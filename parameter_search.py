@@ -159,7 +159,7 @@ def optimise(kappa, n_runs, n_sub_runs, ignore_similar, score_type = 'general'):
     n_epochs = 10
     print_step = max(n_epochs // 2, 1)
     
-    train, val, ENDPOINT, AGE, SEX, vocab_size, sequence_length, n_individuals = get_dataset(nrows = 30_000_000)
+    train, val, ENDPOINT, AGE, SEX, vocab_size, sequence_length, n_individuals = get_dataset(nrows = 10_000_000)
     
     print('Data loaded, number of individuals:', n_individuals)
     
@@ -214,7 +214,7 @@ def optimise(kappa, n_runs, n_sub_runs, ignore_similar, score_type = 'general'):
     
     # Bounded region of parameter space
     pbounds = {
-        'batch_size': (16, 256),
+        'batch_size': (16, 512),
         'lr': (2, 8),
         'temperature': (1, 100),
     }
