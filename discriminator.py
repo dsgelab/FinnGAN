@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from minibatch_discrimination import MinibatchDiscrimination
 
 cuda = torch.cuda.is_available()
 
@@ -10,7 +11,7 @@ device = torch.device("cuda:0" if cuda else "cpu")
 Tensor = torch.cuda.FloatTensor if cuda else torch.FloatTensor
 
 class RelGANDiscriminator(nn.Module):
-    def __init__(self, n_embeddings, vocab_size, embed_size, sequence_length, out_channels, filter_sizes):
+    def __init__(self, n_embeddings, vocab_size, embed_size, sequence_length, out_channels, filter_sizes, mbd_out_features, mbd_kernel_dims):
         super(RelGANDiscriminator, self).__init__()
         self.n_embeddings = n_embeddings
         self.vocab_size = vocab_size
@@ -19,13 +20,23 @@ class RelGANDiscriminator(nn.Module):
         self.out_channels = out_channels
         self.filter_sizes = filter_sizes
         self.n_total_out_channels = self.out_channels * len(self.filter_sizes)
+        self.hidden1_size = self.n_total_out_channels
+        self.hidden2_size = self.n_total_out_channels // 2 + 1
+        
+        self.mbd_in_features = self.n_embeddings * self.hidden1_size
+        self.mbd_out_features = mbd_out_features
+        self.mbd_kernel_dims = mbd_kernel_dims
+        
+        self.hidden1_size += self.mbd_out_features + 2 + self.sequence_length * self.vocab_size
         
         self.embeddings = nn.ModuleList([nn.Embedding(self.vocab_size, self.embed_size) for _ in range(self.n_embeddings)])
         
         self.convolutions = nn.ModuleList([nn.utils.spectral_norm(nn.Conv2d(1, self.out_channels, (filter_size, self.embed_size + 1))) for filter_size in self.filter_sizes])
         
-        self.hidden1 = nn.utils.spectral_norm(nn.Linear(self.n_total_out_channels + 2 + self.sequence_length * self.vocab_size, self.n_total_out_channels // 2 + 1))
-        self.hidden2 = nn.utils.spectral_norm(nn.Linear(self.n_total_out_channels // 2 + 1, self.n_total_out_channels // 4 + 1))
+        self.MBD = MinibatchDiscrimination(self.mbd_in_features, self.mbd_out_features, self.mbd_kernel_dims)
+        
+        self.hidden1 = nn.utils.spectral_norm(nn.Linear(self.hidden1_size, self.hidden2_size))
+        self.hidden2 = nn.utils.spectral_norm(nn.Linear(self.hidden2_size, self.n_total_out_channels // 4 + 1))
         
         self.output_layer = nn.utils.spectral_norm(nn.Linear(self.n_total_out_channels // 4 + 1, 1))
         
@@ -66,7 +77,9 @@ class RelGANDiscriminator(nn.Module):
             
         hidden = torch.cat(hidden, dim = -1) # [batch_size, self.n_total_out_channels, 1, self.n_embeddings]
         hidden = hidden.permute(0, 3, 1, 2).squeeze(dim = -1) # [batch_size, self.n_embeddings, self.n_total_out_channels]
-        hidden = torch.cat([hidden, sexes, proportion, dist], dim = -1) # [batch_size, self.n_embeddings, self.n_total_out_channels + 2 + self.sequence_length * self.vocab_size]
+        hidden = self.MBD(hidden) # [batch_size, self.n_embeddings, self.n_total_out_channels + self.mbd_out_features]
+        
+        hidden = torch.cat([hidden, sexes, proportion, dist], dim = -1) # [batch_size, self.n_embeddings, self.n_total_out_channels + self.mbd_out_features + 2 + self.sequence_length * self.vocab_size]
         features = hidden.view(hidden.shape[0], -1)
             
         if feature_matching:

@@ -17,7 +17,7 @@ endpoints = [
 ]
 
 use_default_params = True
-use_optimal_bs_and_lr = True
+use_optimal_bs_and_lr = False
 
 
 # Generator params
@@ -35,14 +35,16 @@ embed_size = embed_size
 out_channels = 5
 filter_sizes = [2, 3] # values can be at most the sequence_length
 n_critic = 1
+mbd_out_features = 5
+mbd_kernel_dims = 2
 
 # Training params
-#batch_size = 128
-batch_size = 17
+batch_size = 128*2
+#batch_size = 17
 n_epochs = 10
 print_step = max(n_epochs // 10, 1)
-#lr = 1e-4
-lr = 10 ** (-6.864947029352897)
+lr = 1e-4
+#lr = 10 ** (-6.864947029352897)
 
 
 
@@ -52,9 +54,9 @@ dummy_batch_size = 256
 dummy_batch_size2 = 10000
 
 ignore_similar = True
-GAN_type = 'feature matching'
+GAN_type = 'standard'
 
-one_sided_label_smoothing = True
+one_sided_label_smoothing = False
 relativistic_average = None
 
 params_name = 'transition'

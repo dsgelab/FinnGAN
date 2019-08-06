@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torchtext.data import Field, Iterator, Dataset, Example
 import numpy as np
 import pandas as pd
 from params import *
@@ -63,6 +64,7 @@ def test_generator(data, ages, sexes, data_fake, ages_fake, sexes_fake, before, 
     
     #return 
     
+    # TODO: change to as they are in get_scores
     if ignore_similar:
         similarity_score = torch.tensor(1.0 - data_fake.shape[0] / data.shape[0])
     else:
@@ -154,11 +156,23 @@ def simulate_training():
     
     
 if __name__ == '__main__':
+
+    a = torch.randn(2, 4, 3)
+    print(a)
+    print()
+    print(a.view(a.shape[0], -1))
+    b = torch.cat([a, torch.ones(a.shape[:2]).unsqueeze(-1)], dim = -1)
+    print(b)
+    
     '''
-    nrows = 3_000_000
+    
+    nrows = 300_000_000
     train, val, ENDPOINT, AGE, SEX, vocab_size, sequence_length, n_individuals = get_dataset(nrows = nrows)
     print('Data loaded, number of individuals:', n_individuals)
-
+    
+    data = next(iter(Iterator(train, batch_size = n_individuals))).ENDPOINT.transpose(0, 1)
+    print(1.0 - data.unique(dim = 0).shape[0] / data.shape[0]) # 0.771352528429712 (nrows = 300_000_000)
+    
     G = RelationalMemoryGenerator(mem_slots, head_size, embed_size, vocab_size, temperature, num_heads, num_blocks)
     G.load_state_dict(torch.load(G_filename))
     G.eval()
@@ -166,6 +180,8 @@ if __name__ == '__main__':
     data, ages, sexes, data_fake, ages_fake, sexes_fake = get_real_and_fake_data(G, train, ignore_similar, dummy_batch_size, sequence_length, True)
     
     test_generator(data, ages, sexes, data_fake, ages_fake, sexes_fake, False, True, ENDPOINT, SEX, vocab_size, sequence_length)
-    '''
     
     simulate_training()
+    
+    '''
+    

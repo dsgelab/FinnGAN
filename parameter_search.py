@@ -109,7 +109,7 @@ def random_search(n_runs):
             start_time = time.time()
 
             G = RelationalMemoryGenerator(mem_slots, head_size, embed_size, vocab_size, temperature, num_heads, num_blocks)
-            D = RelGANDiscriminator(n_embeddings, vocab_size, embed_size, sequence_length, out_channels, filter_sizes)
+            D = RelGANDiscriminator(n_embeddings, vocab_size, embed_size, sequence_length, out_channels, filter_sizes, mbd_out_features, mbd_kernel_dims)
 
             '''
             if torch.cuda.device_count() > 1:
@@ -177,7 +177,7 @@ def optimise(kappa, n_runs, n_sub_runs, ignore_similar, score_type = 'general'):
                 # Train the GAN
 
                 G = RelationalMemoryGenerator(mem_slots, head_size, embed_size, vocab_size, temperature, num_heads, num_blocks)
-                D = RelGANDiscriminator(n_embeddings, vocab_size, embed_size, sequence_length, out_channels, filter_sizes)
+                D = RelGANDiscriminator(n_embeddings, vocab_size, embed_size, sequence_length, out_channels, filter_sizes, mbd_out_features, mbd_kernel_dims)
 
                 # Call train function
                 dist_score, transition_score, similarity_score, mode_collapse_score, indv_score, transition_score_full, _, _, _ = train_GAN(
