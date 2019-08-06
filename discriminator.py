@@ -22,14 +22,14 @@ class RelGANDiscriminator(nn.Module):
         
         self.embeddings = nn.ModuleList([nn.Embedding(self.vocab_size, self.embed_size) for _ in range(self.n_embeddings)])
         
-        self.convolutions = nn.ModuleList([nn.utils.spectral_norm(nn.Conv2d(1, self.out_channels, (filter_size, self.embed_size + 1))) for filter_size in self.filter_sizes])
+        self.convolutions = nn.ModuleList([nn.utils.spectral_norm(nn.Conv2d(1, self.out_channels, (filter_size, self.embed_size + 1 + self.vocab_size))) for filter_size in self.filter_sizes])
         
         self.hidden1 = nn.utils.spectral_norm(nn.Linear(self.n_total_out_channels + 2, self.n_total_out_channels // 2 + 1))
         self.hidden2 = nn.utils.spectral_norm(nn.Linear(self.n_total_out_channels // 2 + 1, self.n_total_out_channels // 4 + 1))
         
         self.output_layer = nn.utils.spectral_norm(nn.Linear(self.n_total_out_channels // 4 + 1, 1))
         
-    def forward(self, x, age, sex, proportion, return_mean = True, feature_matching = False, return_critic = False):
+    def forward(self, x, age, sex, proportion, dist, return_mean = True, feature_matching = False, return_critic = False):
         '''
             input:
                 x (torch.FloatTensor): onehot of size [batch_size, self.sequence_length, self.vocab_size]
@@ -43,6 +43,10 @@ class RelGANDiscriminator(nn.Module):
         
         proportion = torch.tensor(proportion).repeat(x.shape[0], self.n_embeddings).type(Tensor)
         
+        dist = dist.transpose(0, 1) # [self.sequence_length, self.vocab_size]
+        dist = dist.unsqueeze(dim = 0).unsqueeze(dim = 0) # [1, 1, self.sequence_length, self.vocab_size]
+        dist = dist.repeat(x.shape[0], 1, 1, 1).type(Tensor) # [batch_size, 1, self.sequence_length, self.vocab_size]
+        
         ages = ages.unsqueeze(dim = 1).unsqueeze(dim = -1) # [batch_size, 1, self.sequence_length, 1]
         sexes = sexes.unsqueeze(dim = -1) # [batch_size, self.n_embeddings, 1]
         proportion = proportion.unsqueeze(dim = -1) # [batch_size, self.n_embeddings, 1]
@@ -51,7 +55,7 @@ class RelGANDiscriminator(nn.Module):
             # using tensordot instead of matmul because matmul produces "UnsafeViewBackward" grad_fn
             embed = torch.tensordot(x, embedding.weight, dims = 1)
             embed = embed.unsqueeze(dim = 1) # Add channel dimension => shape: [batch_size, 1, self.sequence_length, self.embed_size]
-            embed = torch.cat([embed, ages], dim = -1) # [batch_size, 1, self.sequence_length, self.embed_size + 1]
+            embed = torch.cat([embed, ages, dist], dim = -1) # [batch_size, 1, self.sequence_length, self.embed_size + 1 + self.vocab_size]
             max_pools = []
             for i, convolution in enumerate(self.convolutions):
                 conv = convolution(embed) # [batch_size, self.out_channels, self.sequence_length - self.filter_sizes[i] + 1, 1]

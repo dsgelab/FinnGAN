@@ -35,7 +35,7 @@ print('Device:', device)
 Tensor = torch.cuda.FloatTensor if cuda else torch.FloatTensor
 
 def main():
-    nrows = 300_000_000
+    nrows = 10_000_000
     train, val, ENDPOINT, AGE, SEX, vocab_size, sequence_length, n_individuals = get_dataset(nrows = nrows)
     
     print('Data loaded, number of individuals:', n_individuals)
@@ -93,8 +93,8 @@ def main():
     start_time = time.time()
 
     # Call train function
-    scores1_train, transition_scores_mean_train, similarity_score_train, indv_score_mean_train, transition_scores_train, indv_score_train, \
-    scores1_val, transition_scores_mean_val, similarity_score_val, indv_score_mean_val, transition_scores_val, indv_score_val, \
+    scores1_train, transition_scores_mean_train, similarity_score_train, mode_collapse_score_train, indv_score_mean_train, transition_scores_train, indv_score_train, \
+    scores1_val, transition_scores_mean_val, similarity_score_val, mode_collapse_score_val, indv_score_mean_val, transition_scores_val, indv_score_val, \
     accuracies_real, accuracies_fake = train_GAN(
         G, D, train, val, ENDPOINT, batch_size, vocab_size, sequence_length, n_epochs, lr, temperature, GAN_type, n_critic, print_step, get_scores, ignore_time, dummy_batch_size, ignore_similar, one_sided_label_smoothing, relativistic_average, False
     )
@@ -114,8 +114,8 @@ def main():
     save_frequency_comparisons(data_fake1, data_fake2, vocab_size, ENDPOINT, prefix, N_max)    
     
 
-    save_plots_of_train_scores(scores1_train, transition_scores_mean_train, similarity_score_train, indv_score_mean_train, transition_scores_train, indv_score_train, \
-    scores1_val, transition_scores_mean_val, similarity_score_val, indv_score_mean_val, transition_scores_val, indv_score_val, \
+    save_plots_of_train_scores(scores1_train, transition_scores_mean_train, similarity_score_train, mode_collapse_score_train, indv_score_mean_train, transition_scores_train, indv_score_train, \
+    scores1_val, transition_scores_mean_val, similarity_score_val, mode_collapse_score_val, indv_score_mean_val, transition_scores_val, indv_score_val, \
     accuracies_real, accuracies_fake, ignore_time, sequence_length, vocab_size, ENDPOINT)
 
 

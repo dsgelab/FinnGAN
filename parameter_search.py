@@ -121,7 +121,7 @@ def random_search(n_runs):
             '''
 
             # Call train function
-            scores1, scores2_mean, similarity_score, indv_score_mean, scores2, indv_score, accuracies_real, accuracies_fake = train_GAN(
+            scores1, scores2_mean, similarity_score, mode_collapse_score, indv_score_mean, scores2, indv_score, accuracies_real, accuracies_fake = train_GAN(
                 G, D, train, val, ENDPOINT, batch_size, vocab_size, sequence_length, n_epochs, lr, temperature, GAN_type, print_step, get_scores, ignore_time, dummy_batch_size
             )
 
@@ -180,7 +180,7 @@ def optimise(kappa, n_runs, n_sub_runs, ignore_similar, score_type = 'general'):
                 D = RelGANDiscriminator(n_embeddings, vocab_size, embed_size, sequence_length, out_channels, filter_sizes)
 
                 # Call train function
-                dist_score, transition_score, similarity_score, indv_score, transition_score_full, _, _, _ = train_GAN(
+                dist_score, transition_score, similarity_score, mode_collapse_score, indv_score, transition_score_full, _, _, _ = train_GAN(
                     G, D, train, val, ENDPOINT, batch_size, vocab_size, sequence_length, n_epochs, lr, temperature, GAN_type, n_critic, print_step, get_scores, ignore_time, dummy_batch_size, ignore_similar, one_sided_label_smoothing, relativistic_average, True
                 )
                 
@@ -188,7 +188,7 @@ def optimise(kappa, n_runs, n_sub_runs, ignore_similar, score_type = 'general'):
                     score = -(3 * dist_score[-1] + \
                               4 * transition_score[-1] + \
                               2 * similarity_score[-1] + \
-                              1 * indv_score[-1])
+                              1 * mode_collapse_score[-1])
                 elif score_type == 'chd_and_br_cancer':
                     # minimize the transition score from chd to breast cancer
                     score = -transition_score_full[ \
@@ -198,7 +198,7 @@ def optimise(kappa, n_runs, n_sub_runs, ignore_similar, score_type = 'general'):
                     score = -transition_score[-1]
                     
                 if isnan(score):
-                    score = -10
+                    score = -1000
                 
                 print('Score:', score)
                 
@@ -210,7 +210,7 @@ def optimise(kappa, n_runs, n_sub_runs, ignore_similar, score_type = 'general'):
     
         except RuntimeError as e:
             print(e)
-            return -10
+            return -1000
     
     # Bounded region of parameter space
     pbounds = {
