@@ -24,12 +24,12 @@ class RelGANDiscriminator(nn.Module):
         
         self.convolutions = nn.ModuleList([nn.utils.spectral_norm(nn.Conv2d(1, self.out_channels, (filter_size, self.embed_size + 1))) for filter_size in self.filter_sizes])
         
-        self.hidden1 = nn.utils.spectral_norm(nn.Linear(self.n_total_out_channels + 1, self.n_total_out_channels // 2 + 1))
+        self.hidden1 = nn.utils.spectral_norm(nn.Linear(self.n_total_out_channels + 2, self.n_total_out_channels // 2 + 1))
         self.hidden2 = nn.utils.spectral_norm(nn.Linear(self.n_total_out_channels // 2 + 1, self.n_total_out_channels // 4 + 1))
         
         self.output_layer = nn.utils.spectral_norm(nn.Linear(self.n_total_out_channels // 4 + 1, 1))
         
-    def forward(self, x, age, sex, return_mean = True, feature_matching = False, return_critic = False):
+    def forward(self, x, age, sex, proportion, return_mean = True, feature_matching = False, return_critic = False):
         '''
             input:
                 x (torch.FloatTensor): onehot of size [batch_size, self.sequence_length, self.vocab_size]
@@ -41,8 +41,11 @@ class RelGANDiscriminator(nn.Module):
         
         sexes = (sex.view(-1, 1) - 2).repeat(1, self.n_embeddings).type(Tensor)
         
+        proportion = torch.tensor(proportion).repeat(x.shape[0], self.n_embeddings).type(Tensor)
+        
         ages = ages.unsqueeze(dim = 1).unsqueeze(dim = -1) # [batch_size, 1, self.sequence_length, 1]
         sexes = sexes.unsqueeze(dim = -1) # [batch_size, self.n_embeddings, 1]
+        proportion = proportion.unsqueeze(dim = -1) # [batch_size, self.n_embeddings, 1]
         
         for embedding in self.embeddings:
             # using tensordot instead of matmul because matmul produces "UnsafeViewBackward" grad_fn
@@ -60,14 +63,14 @@ class RelGANDiscriminator(nn.Module):
             
         hidden = torch.cat(hidden, dim = -1) # [batch_size, self.n_total_out_channels, 1, self.n_embeddings]
         hidden = hidden.permute(0, 3, 1, 2).squeeze(dim = -1) # [batch_size, self.n_embeddings, self.n_total_out_channels]
-        hidden = torch.cat([hidden, sexes], dim = -1) # [batch_size, self.n_embeddings, self.n_total_out_channels + 1]
-        
-        hidden = self.hidden1(hidden) # [batch_size, self.n_embeddings, self.n_total_out_channels // 2 + 1]
-        hidden = F.relu(hidden)
+        hidden = torch.cat([hidden, sexes, proportion], dim = -1) # [batch_size, self.n_embeddings, self.n_total_out_channels + 2]
         features = hidden.view(hidden.shape[0], -1)
             
         if feature_matching:
             return features
+        
+        hidden = self.hidden1(hidden) # [batch_size, self.n_embeddings, self.n_total_out_channels // 2 + 1]
+        hidden = F.relu(hidden)
         
         hidden = self.hidden2(hidden) # [batch_size, self.n_embeddings, self.n_total_out_channels // 4 + 1]
         hidden = F.relu(hidden)

@@ -18,7 +18,7 @@ Tensor = torch.cuda.FloatTensor if cuda else torch.FloatTensor
 
 
             
-def get_modified_batch(batch, ENDPOINT, n = 10):
+def get_modified_batch(batch, ENDPOINT, n = 5):
     data = batch.ENDPOINT.transpose(0, 1).cpu()
     None_i = ENDPOINT.vocab.stoi['None']
     res = [data]
@@ -183,21 +183,24 @@ def train_GAN(G, D, train, val, ENDPOINT, batch_size, vocab_size, sequence_lengt
                 #memory = memory.cuda()
 
             temp = temperature ** ((e + 1) / (n_epochs * n_critic))
-            fake_one_hot, _, _ = G(start_token, ages, sexes, None, sequence_length, temp)
+            fake_one_hot, fake_data, _ = G(start_token, ages, sexes, None, sequence_length, temp)
+            
+            proportion = train_data.unique(dim = 0).shape[0] / train_data.shape[0]
+            proportion_fake = fake_data.unique(dim = 0).shape[0] / fake_data.shape[0]
             
             if e % n_critic == 0:
                 # Loss measures generator's ability to fool the discriminator
                 if GAN_type == 'feature matching':
-                    D_out_fake = D(fake_one_hot, ages, sexes, feature_matching = True).mean(dim = 0)
-                    D_out_real = D(train_data_one_hot.detach(), ages, sexes, feature_matching = True).mean(dim = 0)
+                    D_out_fake = D(fake_one_hot, ages, sexes, proportion_fake, feature_matching = True).mean(dim = 0)
+                    D_out_real = D(train_data_one_hot.detach(), ages, sexes, proportion, feature_matching = True).mean(dim = 0)
 
                 elif GAN_type == 'standard' and relativistic_average is None:
-                    D_out_fake = D(fake_one_hot, ages, sexes)
-                    D_out_real = D(train_data_one_hot.detach(), ages, sexes)
+                    D_out_fake = D(fake_one_hot, ages, sexes, proportion_fake)
+                    D_out_real = D(train_data_one_hot.detach(), ages, sexes, proportion)
 
                 elif GAN_type in ['least squares', 'wasserstein'] or relativistic_average is not None:
-                    D_out_fake = D(fake_one_hot, ages, sexes, return_critic = True)
-                    D_out_real = D(train_data_one_hot.detach(), ages, sexes, return_critic = True)
+                    D_out_fake = D(fake_one_hot, ages, sexes, proportion_fake, return_critic = True)
+                    D_out_real = D(train_data_one_hot.detach(), ages, sexes, proportion, return_critic = True)
 
 
                 if GAN_type == 'feature matching':
@@ -226,11 +229,11 @@ def train_GAN(G, D, train, val, ENDPOINT, batch_size, vocab_size, sequence_lengt
 
             # Measure discriminator's ability to classify real from generated samples
             if GAN_type in ['least squares', 'wasserstein'] or relativistic_average is not None:
-                D_out_real = D(train_data_one_hot, ages, sexes, return_critic = True).view(-1)
-                D_out_fake = D(fake_one_hot.detach(), ages, sexes, return_critic = True).view(-1)
+                D_out_real = D(train_data_one_hot, ages, sexes, proportion, return_critic = True).view(-1)
+                D_out_fake = D(fake_one_hot.detach(), ages, sexes, proportion_fake, return_critic = True).view(-1)
             else:
-                D_out_real = D(train_data_one_hot, ages, sexes).view(-1)
-                D_out_fake = D(fake_one_hot.detach(), ages, sexes).view(-1)
+                D_out_real = D(train_data_one_hot, ages, sexes, proportion).view(-1)
+                D_out_fake = D(fake_one_hot.detach(), ages, sexes, proportion_fake).view(-1)
             
             
             if GAN_type in ['least squares', 'wasserstein'] or relativistic_average is not None:
