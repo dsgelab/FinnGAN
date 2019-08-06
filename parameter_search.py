@@ -185,10 +185,10 @@ def optimise(kappa, n_runs, n_sub_runs, ignore_similar, score_type = 'general'):
                 )
                 
                 if score_type == 'general':
-                    score = -(3 * dist_score[-1] + \
-                              4 * transition_score[-1] + \
-                              2 * similarity_score[-1] + \
-                              1 * mode_collapse_score[-1])
+                    score = -(2 * dist_score[-1] + \
+                              3 * transition_score[-1] + \
+                              1 * similarity_score[-1] + \
+                              4 * mode_collapse_score[-1])
                 elif score_type == 'chd_and_br_cancer':
                     # minimize the transition score from chd to breast cancer
                     score = -transition_score_full[ \
