@@ -26,6 +26,7 @@ from train import pretrain_generator, train_GAN
 from bayes_opt import BayesianOptimization
 from bayes_opt.observer import JSONLogger
 from bayes_opt.event import Events
+from bayes_opt.util import load_logs
 
 cuda = torch.cuda.is_available()
 
@@ -227,6 +228,8 @@ def optimise(kappa, n_runs, n_sub_runs, ignore_similar, score_type = 'general'):
     
     filename = "optim_results/{}_{}.json".format(score_type, n_individuals)
     
+    load_logs(optimizer, logs=[filename])
+    
     logger = JSONLogger(path=filename)
     optimizer.subscribe(Events.OPTMIZATION_STEP, logger)        
         
@@ -246,7 +249,7 @@ if __name__ == '__main__':
     #random_search(n_runs)
     
     kappa = 1
-    n_runs = 60
+    n_runs = 100
     n_sub_runs = 2
     ignore_similar = True
     score_type = 'general'
