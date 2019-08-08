@@ -160,6 +160,8 @@ def optimise(kappa, n_runs, n_sub_runs, ignore_similar, score_type = 'general'):
     n_epochs = 10
     print_step = max(n_epochs // 2, 1)
     
+    min_score = -1000
+    
     train, val, ENDPOINT, AGE, SEX, vocab_size, sequence_length, n_individuals = get_dataset(nrows = 10_000_000)
     
     print('Data loaded, number of individuals:', n_individuals)
@@ -199,7 +201,9 @@ def optimise(kappa, n_runs, n_sub_runs, ignore_similar, score_type = 'general'):
                     score = -transition_score[-1]
                     
                 if isnan(score):
-                    score = -1000
+                    score = min_score
+                    
+                score = max(min_score, score)
                 
                 print('Score:', score)
                 
@@ -211,7 +215,7 @@ def optimise(kappa, n_runs, n_sub_runs, ignore_similar, score_type = 'general'):
     
         except RuntimeError as e:
             print(e)
-            return -1000
+            return min_score
     
     # Bounded region of parameter space
     pbounds = {

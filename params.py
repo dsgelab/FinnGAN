@@ -17,7 +17,7 @@ endpoints = [
 ]
 
 use_default_params = True
-use_optimal_bs_and_lr = False
+use_optimal_bs_and_lr = True
 
 
 # Generator params
@@ -25,25 +25,25 @@ mem_slots = 1
 head_size = 6
 embed_size = 4
 temperature = 5
-num_heads = 5
+num_heads = 6
 num_blocks = 4
 
 
 # Discriminator params
 n_embeddings = 3
 embed_size = embed_size
-out_channels = 5
-filter_sizes = [2, 3] # values can be at most the sequence_length
-n_critic = 1
-mbd_out_features = 5
+out_channels = 10
+filter_sizes = [2, 3, 4, 5] # values can be at most the sequence_length
+n_critic = 5
+mbd_out_features = 4
 mbd_kernel_dims = 2
 
 # Training params
-batch_size = 128*2
+batch_size = 128*4
 #batch_size = 17
-n_epochs = 10
-print_step = max(n_epochs // 10, 1)
-lr = 1e-4
+n_epochs = 30
+print_step = max(n_epochs // 20, 1)
+lr = 10 ** -4.3
 #lr = 10 ** (-6.864947029352897)
 
 
@@ -85,6 +85,8 @@ transition_params = [
 
 general_params1 = [
     {'target': -0.5692319273948669, 'params': {'batch_size': 97.62833563120961, 'lr': 7.097719647690072, 'temperature': 112.2618950139476}},
+    {'target': -7.569706916809082, 'params': {'batch_size': 85.89919785463678, 'lr': 4.4296372481419946, 'temperature': 90.93189011962716}}
+
 ]
 
 GAN_types = ['standard', 'feature matching', 'wasserstein', 'least squares']

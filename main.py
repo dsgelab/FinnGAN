@@ -35,7 +35,7 @@ print('Device:', device)
 Tensor = torch.cuda.FloatTensor if cuda else torch.FloatTensor
 
 def main():
-    nrows = 10_000_000
+    nrows = 30_000_000
     train, val, ENDPOINT, AGE, SEX, vocab_size, sequence_length, n_individuals = get_dataset(nrows = nrows)
     
     print('Data loaded, number of individuals:', n_individuals)
@@ -117,12 +117,6 @@ def main():
     save_plots_of_train_scores(scores1_train, transition_scores_mean_train, similarity_score_train, mode_collapse_score_train, indv_score_mean_train, transition_scores_train, indv_score_train, \
     scores1_val, transition_scores_mean_val, similarity_score_val, mode_collapse_score_val, indv_score_mean_val, transition_scores_val, indv_score_val, \
     accuracies_real, accuracies_fake, ignore_time, sequence_length, vocab_size, ENDPOINT)
-
-
-    test_size = 10
-    visualize_output(G, test_size, val, sequence_length, ENDPOINT, SEX)
-    
-    torch.save(G.state_dict(), G_filename)
     
     
     test_generator(data1, ages1, sexes1, data_fake1, ages_fake1, sexes_fake1, False, True, ENDPOINT, SEX, vocab_size, sequence_length)
@@ -143,6 +137,13 @@ def main():
     
     save(data1, data_fake1, train = True)
     save(data2, data_fake2, train = False)
+    
+
+
+    test_size = 10
+    visualize_output(G, test_size, val, sequence_length, ENDPOINT, SEX)
+    
+    torch.save(G.state_dict(), G_filename)
 
 if __name__ == '__main__':
     main()
