@@ -49,7 +49,7 @@ def main():
     
 
     G = RelationalMemoryGenerator(mem_slots, head_size, embed_size, vocab_size, temperature, num_heads, num_blocks)
-    D = RelGANDiscriminator(n_embeddings, vocab_size, embed_size, sequence_length, out_channels, filter_sizes, mbd_out_features, mbd_kernel_dims)
+    D = RelGANDiscriminator(n_embeddings, vocab_size, embed_size, sequence_length, out_channels, filter_sizes, use_aux_info, use_mbd, mbd_out_features, mbd_kernel_dims)
     
     '''
     if torch.cuda.device_count() > 1:
@@ -69,12 +69,7 @@ def main():
     
     data2, ages2, sexes2, data_fake2, ages_fake2, sexes_fake2 = get_real_and_fake_data(G, val, ignore_similar, dummy_batch_size, sequence_length, True)
     
-    save_frequency_comparisons(data_fake1, data_fake2, vocab_size, ENDPOINT, prefix, N_max)   
-    
-    test_generator(data1, ages1, sexes1, data_fake1, ages_fake1, sexes_fake1, True, True, ENDPOINT, SEX, vocab_size, sequence_length)
-    
-    test_generator(data2, ages2, sexes2, data_fake2, ages_fake2, sexes_fake2, True, False, ENDPOINT, SEX, vocab_size, sequence_length)
-    
+    '''
     predictor_name = 'I9_STR_EXH'
     event_name = 'I9_HEARTFAIL_NS'
     
@@ -86,6 +81,13 @@ def main():
     
     analyse(data1, data_fake1, True, True, ENDPOINT, event_name, predictor_name)
     analyse(data2, data_fake2, True, False, ENDPOINT, event_name, predictor_name)
+    '''
+    
+    save_frequency_comparisons(data_fake1, data_fake2, vocab_size, ENDPOINT, prefix, N_max)   
+    
+    test_generator(data1, ages1, sexes1, data_fake1, ages_fake1, sexes_fake1, True, True, ENDPOINT, SEX, vocab_size, sequence_length)
+    
+    test_generator(data2, ages2, sexes2, data_fake2, ages_fake2, sexes_fake2, True, False, ENDPOINT, SEX, vocab_size, sequence_length)
      
     G.train()
     
@@ -93,8 +95,8 @@ def main():
     start_time = time.time()
 
     # Call train function
-    scores1_train, transition_scores_mean_train, similarity_score_train, mode_collapse_score_train, indv_score_mean_train, transition_scores_train, indv_score_train, \
-    scores1_val, transition_scores_mean_val, similarity_score_val, mode_collapse_score_val, indv_score_mean_val, transition_scores_val, indv_score_val, \
+    scores1_train, transition_scores_mean_train, similarity_score1_train, similarity_score2_train, mode_collapse_score_train, \
+    scores1_val, transition_scores_mean_val, similarity_score1_val, similarity_score2_val, mode_collapse_score_val, \
     accuracies_real, accuracies_fake = train_GAN(
         G, D, train, val, ENDPOINT, batch_size, vocab_size, sequence_length, n_epochs, lr, temperature, GAN_type, n_critic, print_step, get_scores, ignore_time, dummy_batch_size, ignore_similar, one_sided_label_smoothing, relativistic_average, False
     )
@@ -110,18 +112,6 @@ def main():
     data1, ages1, sexes1, data_fake1, ages_fake1, sexes_fake1 = get_real_and_fake_data(G, train, ignore_similar, dummy_batch_size, sequence_length, True)
     
     data2, ages2, sexes2, data_fake2, ages_fake2, sexes_fake2 = get_real_and_fake_data(G, val, ignore_similar, dummy_batch_size, sequence_length, True)
-
-    save_frequency_comparisons(data_fake1, data_fake2, vocab_size, ENDPOINT, prefix, N_max)    
-    
-
-    save_plots_of_train_scores(scores1_train, transition_scores_mean_train, similarity_score_train, mode_collapse_score_train, indv_score_mean_train, transition_scores_train, indv_score_train, \
-    scores1_val, transition_scores_mean_val, similarity_score_val, mode_collapse_score_val, indv_score_mean_val, transition_scores_val, indv_score_val, \
-    accuracies_real, accuracies_fake, ignore_time, sequence_length, vocab_size, ENDPOINT)
-    
-    
-    test_generator(data1, ages1, sexes1, data_fake1, ages_fake1, sexes_fake1, False, True, ENDPOINT, SEX, vocab_size, sequence_length)
-    
-    test_generator(data2, ages2, sexes2, data_fake2, ages_fake2, sexes_fake2, False, False, ENDPOINT, SEX, vocab_size, sequence_length)
     
     predictor_name = 'I9_STR_EXH'
     event_name = 'I9_HEARTFAIL_NS'
@@ -134,6 +124,19 @@ def main():
     
     analyse(data1, data_fake1, False, True, ENDPOINT, event_name, predictor_name)
     analyse(data2, data_fake2, False, False, ENDPOINT, event_name, predictor_name)
+    
+
+    save_frequency_comparisons(data_fake1, data_fake2, vocab_size, ENDPOINT, prefix, N_max)    
+    
+
+    save_plots_of_train_scores(scores1_train, transition_scores_mean_train, similarity_score1_train, similarity_score2_train, mode_collapse_score_train, \
+    scores1_val, transition_scores_mean_val, similarity_score1_val, similarity_score2_val, mode_collapse_score_val, \
+    accuracies_real, accuracies_fake, ignore_time, sequence_length, vocab_size, ENDPOINT)
+    
+    
+    test_generator(data1, ages1, sexes1, data_fake1, ages_fake1, sexes_fake1, False, True, ENDPOINT, SEX, vocab_size, sequence_length)
+    
+    test_generator(data2, ages2, sexes2, data_fake2, ages_fake2, sexes_fake2, False, False, ENDPOINT, SEX, vocab_size, sequence_length)
     
     save(data1, data_fake1, train = True)
     save(data2, data_fake2, train = False)

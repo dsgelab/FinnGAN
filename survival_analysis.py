@@ -82,7 +82,7 @@ def get_survival_analysis_input(data, ENDPOINT, event_name, predictor_name):
     
 
 
-def analyse(data, data_fake, before, train, ENDPOINT, event_name, predictor_name):
+def analyse(data, data_fake, before, train, ENDPOINT, event_name, predictor_name, plot=True):
     plt.style.use(plot_style)
     plt.clf()
     
@@ -95,53 +95,49 @@ def analyse(data, data_fake, before, train, ENDPOINT, event_name, predictor_name
         'I9_ANGINA': 'angina'
     }
     
-    print()
-    print('REAL:')
     surv_inp = get_survival_analysis_input(data, ENDPOINT, event_name, predictor_name)
     
     cph = CoxPHFitter()
     cph.fit(surv_inp, duration_col='duration', event_col=event_name, show_progress=False)
-    cph.print_summary()  # access the results using cph.summary
-    #cph.check_assumptions(surv_inp, p_value_threshold=0.05, show_plots=False)
-    #cph.plot_covariate_groups(predictor_name, [0, 1], plot_baseline=False)
-    #plt.title(event_name + ' (real)')
-    #plt.savefig('figs/{}_survival_real_{}.svg'.format('Before' if before else 'After', 'train' if train else 'val'))
+    if plot:
+        print()
+        print('REAL:')
+        cph.print_summary()  # access the results using cph.summary
     
     X = pd.DataFrame(np.unique(surv_inp[predictor_name].values, axis=0), columns=[predictor_name])
     
     survival_functions = cph.predict_survival_function(X)
     survival_functions.columns = [(clean_names[predictor_name] if predictor_name in clean_names else predictor_name) + ' = {} (real)'.format(col) for col in survival_functions.columns]
     
-    print()
-    print('FAKE:')
+    
+    
     surv_inp = get_survival_analysis_input(data_fake, ENDPOINT, event_name, predictor_name)
 
     cph1 = CoxPHFitter()
     cph1.fit(surv_inp, duration_col='duration', event_col=event_name, show_progress=False)
-    cph1.print_summary()  # access the results using cph.summary
-    #cph1.check_assumptions(surv_inp, p_value_threshold=0.05, show_plots=False)
+    if plot:
+        print()
+        print('FAKE:')
+        cph1.print_summary()  # access the results using cph.summary
     
     survival_functions1 = cph1.predict_survival_function(X)
     survival_functions1.columns = [(clean_names[predictor_name] if predictor_name in clean_names else predictor_name) + ' = {} (synthetic)'.format(col) for col in survival_functions1.columns]
     
     res = pd.concat([survival_functions, survival_functions1], axis=1)
     
-    plt.plot(res.iloc[:, 0], label=res.columns[0], linestyle='-', color='b')
-    plt.plot(res.iloc[:, 1], label=res.columns[1], linestyle='-', color='g')
-    plt.plot(res.iloc[:, 2], label=res.columns[2], linestyle='--', color='b')
-    plt.plot(res.iloc[:, 3], label=res.columns[3], linestyle='--', color='g')
-    plt.legend()
-    
-    #plt.title(clean_names[event_name] if event_name in clean_names else event_name)
-    plt.ylabel('Survival probability of developing {}'.format(clean_names[event_name] if event_name in clean_names else event_name))
-    plt.xlabel('Time (in years)')
-    
-    #cph.plot_covariate_groups(predictor_name, [0, 1], plot_baseline=False)
-    #cph1.plot_covariate_groups(predictor_name, [0, 1], plot_baseline=False, linestyle='--')
-    #plt.legend()
-    #plt.title(event_name + ' (fake)')
-    #plt.savefig('figs/{}_survival_fake_{}.svg'.format('Before' if before else 'After', 'train' if train else 'val'))
-    plt.savefig('figs/{}_survival_{}->{}_{}.jpeg'.format('Before' if before else 'After', predictor_name, event_name, 'train' if train else 'val'))
+    if plot:
+        plt.plot(res.iloc[:, 0], label=res.columns[0], linestyle='-', color='b')
+        plt.plot(res.iloc[:, 1], label=res.columns[1], linestyle='-', color='g')
+        plt.plot(res.iloc[:, 2], label=res.columns[2], linestyle='--', color='b')
+        plt.plot(res.iloc[:, 3], label=res.columns[3], linestyle='--', color='g')
+        plt.legend()
+
+        plt.ylabel('Survival probability of developing {}'.format(clean_names[event_name] if event_name in clean_names else event_name))
+        plt.xlabel('Time (in years)')
+
+        plt.savefig('figs/{}_survival_{}->{}_{}.jpeg'.format('Before' if before else 'After', predictor_name, event_name, 'train' if train else 'val'))
+        
+    return res, cph.hazard_ratios_, cph.confidence_intervals_, cph1.hazard_ratios_, cph1.confidence_intervals_
 
 
 if __name__ == '__main__':

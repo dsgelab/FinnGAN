@@ -62,7 +62,7 @@ def test_generator(data, ages, sexes, data_fake, ages_fake, sexes_fake, before, 
     
     plot_transition_matrix_comparisons(transition_freq, transition_freq_fake, before, train, ENDPOINT, vocab_size, True)
     
-    #return 
+    return 
     
     # TODO: change to as they are in get_scores
     if ignore_similar:

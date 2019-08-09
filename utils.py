@@ -63,7 +63,7 @@ def get_distribution(data, field, vocab_size, fake = True, ignore_time = True, e
     return res
 
 
-def get_sequence_of_codes(subject):
+def get_sequence_of_codes(subject, endpoints):
     codes = ['None' for _ in range(2017 - 2000 + 1)]
     
     if subject['ENDPOINT'].isin(endpoints).any():
@@ -275,7 +275,7 @@ def chi_sqrd_dist(counts1, counts2, separate = False, eps = 1e-20):
     if separate: 
         return diffs_sqrd_norm
     
-    chi_sqrd_distance = torch.sum(diffs_sqrd_norm)
+    chi_sqrd_distance = diffs_sqrd_norm.sum().sqrt()
     
     return chi_sqrd_distance
     
@@ -284,8 +284,8 @@ def get_score(data_fake, ENDPOINT, vocab_size):
     
     counts_fake, freqs_fake = get_distribution(data_fake, None, vocab_size, fake = True)
     
-    #score = chi_sqrd_dist(counts_fake, counts_real)
-    score = get_diffs(freqs_fake, freqs_real)
+    score = chi_sqrd_dist(counts_fake, counts_real)
+    #score = get_diffs(freqs_fake, freqs_real)
     return score
 
 def get_transition_score(data, data_fake, d, ignore_time, separate, vocab_size, eps = 1e-20):
@@ -293,7 +293,15 @@ def get_transition_score(data, data_fake, d, ignore_time, separate, vocab_size, 
     transition_freq_fake = get_transition_matrix(data_fake, vocab_size, d, ignore_time)
     
     if ignore_time:
-        res = (transition_freq_real - transition_freq_fake).abs() / (torch.stack([transition_freq_real, transition_freq_fake]).min(dim = 0)[0] + eps)
+        #res = (transition_freq_real - transition_freq_fake).abs() / (torch.stack([transition_freq_real, transition_freq_fake]).min(dim = 0)[0] + eps)
+        transition_freq_real = torch.stack([transition_freq_real, 1 - transition_freq_real], dim = 2)
+        transition_freq_fake = torch.stack([transition_freq_fake, 1 - transition_freq_fake], dim = 2)
+        
+        res = torch.zeros(transition_freq_real.shape[:2])
+        
+        for i in range(transition_freq_real.shape[0]):
+            for j in range(transition_freq_real.shape[1]):
+                res[i, j] = chi_sqrd_dist(transition_freq_real[i, j, :], transition_freq_fake[i, j, :])
                 
         if separate:
             return res
@@ -351,7 +359,6 @@ def get_similarity_score(data1, data2, separate):
 def robust_get_similarity_score(data1, data2, batch_size, separate):
     lis = []
     
-    # TODO: visualize/print the reduction in size
     data2 = data2.unique(dim = 0)
         
     for i in range(0, data1.shape[0], batch_size):
@@ -389,8 +396,8 @@ def get_individual_score(data, data_fake, separate, vocab_size, sequence_length)
     individual_scores = torch.zeros(individual_counts_real.shape[0])
     
     for i in range(individual_counts_real.shape[0]):
-        #individual_scores[i] = chi_sqrd_dist(individual_counts_fake[i, :], individual_counts_real[i, :])
-        individual_scores[i] = get_diffs(individual_freqs_fake[i, :], individual_freqs_real[i, :])
+        individual_scores[i] = chi_sqrd_dist(individual_counts_fake[i, :], individual_counts_real[i, :])
+        #individual_scores[i] = get_diffs(individual_freqs_fake[i, :], individual_freqs_real[i, :])
         
     if separate:
         return individual_scores
@@ -459,7 +466,8 @@ def get_scores(G, ENDPOINT, dataset, batch_size, ignore_time, separate1, separat
     
     data, data_fake = get_real_and_fake_data(G, dataset, False, batch_size, sequence_length)
     
-    similarity_score = robust_get_similarity_score(data, data_fake, dummy_batch_size2, False)
+    similarity_score1 = robust_get_similarity_score(data, data_fake, dummy_batch_size2, False)
+    similarity_score2 = robust_get_similarity_score(data.unique(dim = 0), data_fake, dummy_batch_size2, False)
     
     mode_collapse_score = torch.tensor(1.0 - data_fake.unique(dim = 0).shape[0] / data_fake.shape[0])
     
@@ -471,14 +479,14 @@ def get_scores(G, ENDPOINT, dataset, batch_size, ignore_time, separate1, separat
     
     transition_score = get_aggregate_transition_score(data, data_fake, ignore_time, separate1, separate2, vocab_size, sequence_length)
     
-    indv_score = get_individual_score(data, data_fake, separate1, vocab_size, sequence_length)
+    #indv_score = get_individual_score(data, data_fake, separate1, vocab_size, sequence_length)
     
     G.train()
     
-    return score1, transition_score.median(), similarity_score, mode_collapse_score, indv_score.mean(), transition_score, indv_score
+    return score1, transition_score.mean(), similarity_score1, similarity_score2, mode_collapse_score, #indv_score.mean(), transition_score, indv_score
 
 
-def get_dataset(nrows = 3_000_000):
+def get_dataset(nrows = 3_000_000, endpoints_used = endpoints):
     filename = 'data/FINNGEN_ENDPOINTS_DF3_longitudinal_V1_for_SandBox.txt.gz'
 
     events = pd.read_csv(filename, compression = 'infer', sep='\t', nrows = nrows)
@@ -487,7 +495,7 @@ def get_dataset(nrows = 3_000_000):
     n_individuals = len(subjects)
 
     # include all endpoints in a list
-    #events = events[events['ENDPOINT'].isin(endpoints)] # comment/uncomment this to include/exclude emtpy subjects
+    #events = events[events['ENDPOINT'].isin(endpoints_used)] # comment/uncomment this to include/exclude emtpy subjects
     #events = events.groupby('FINNGENID').filter(lambda x: len(x) > 1)
     events = events[events['EVENT_YEAR'] >= 2000]
     
@@ -502,7 +510,7 @@ def get_dataset(nrows = 3_000_000):
     #sequence_length = min(events.groupby('FINNGENID').apply(lambda x: len(x)).max(), max_sequence_length)
     sequence_length = 2017 - 2000 + 1
 
-    sequences_of_codes = events.groupby('FINNGENID').apply(get_sequence_of_codes)
+    sequences_of_codes = events.groupby('FINNGENID').apply(get_sequence_of_codes, (endpoints_used))
     ages = events.groupby('FINNGENID').apply(get_age)
     sexes = events.groupby('FINNGENID')['SEX'].first()
 
@@ -530,8 +538,8 @@ def get_dataset(nrows = 3_000_000):
     
     return train, val, ENDPOINT, AGE, SEX, vocab_size, sequence_length, n_individuals
 
-def save_plots_of_train_scores(scores1_train, transition_scores_mean_train, similarity_score_train, mode_collapse_score_train, indv_score_mean_train, transition_scores_train, indv_score_train, \
-    scores1_val, transition_scores_mean_val, similarity_score_val, mode_collapse_score_val, indv_score_mean_val, transition_scores_val, indv_score_val, \
+def save_plots_of_train_scores(scores1_train, transition_scores_mean_train, similarity_score1_train, similarity_score2_train, mode_collapse_score_train, \
+    scores1_val, transition_scores_mean_val, similarity_score1_val, similarity_score2_val, mode_collapse_score_val, \
     accuracies_real, accuracies_fake, ignore_time, sequence_length, vocab_size, ENDPOINT):
     x = np.arange(scores1_train.shape[0]) - 2
     
@@ -565,9 +573,9 @@ def save_plots_of_train_scores(scores1_train, transition_scores_mean_train, simi
     plt.clf()
 
     
-    y = similarity_score_train.numpy()
+    y = similarity_score1_train.numpy()
     plt.plot(x, y, label='training set')
-    y = similarity_score_val.numpy()
+    y = similarity_score1_val.numpy()
     plt.plot(x, y, label='validation set')
     plt.ylim(0, 1)
     
@@ -576,6 +584,20 @@ def save_plots_of_train_scores(scores1_train, transition_scores_mean_train, simi
     plt.ylabel('Similarity score')
     plt.xlabel('Iteration')
     plt.savefig('figs/similarity_score.svg')
+    plt.clf()
+    
+    
+    y = similarity_score2_train.numpy()
+    plt.plot(x, y, label='training set')
+    y = similarity_score2_val.numpy()
+    plt.plot(x, y, label='validation set')
+    plt.ylim(0, 1)
+    
+    plt.axvline(-1, color='k', linestyle='--', label='pretraining')
+    plt.legend()
+    plt.ylabel('Similarity score (duplicates removed)')
+    plt.xlabel('Iteration')
+    plt.savefig('figs/similarity_score2.svg')
     plt.clf()
     
     
@@ -590,20 +612,6 @@ def save_plots_of_train_scores(scores1_train, transition_scores_mean_train, simi
     plt.ylabel('Mode collapse score')
     plt.xlabel('Iteration')
     plt.savefig('figs/mode_collapse_score.svg')
-    plt.clf()
-    
-    
-    y = indv_score_mean_train.numpy()
-    plt.plot(x, y, label='training set')
-    y = indv_score_mean_val.numpy()
-    plt.plot(x, y, label='validation set')
-    #plt.ylim(0, 1)
-        
-    plt.axvline(-1, color='k', linestyle='--', label='pretraining')
-    plt.legend()
-    plt.ylabel('Mean individual score')
-    plt.xlabel('Iteration')
-    plt.savefig('figs/mean_indv_score.svg')
     plt.clf()
 
     
@@ -622,7 +630,7 @@ def save_plots_of_train_scores(scores1_train, transition_scores_mean_train, simi
     plt.savefig('figs/accuracy_fake.svg')
     plt.clf()
     
-    
+    '''
     y = indv_score_val.numpy()
     plt.plot(x, y)
     plt.ylim(0, 1)
@@ -663,13 +671,13 @@ def save_plots_of_train_scores(scores1_train, transition_scores_mean_train, simi
             plt.legend(labels)
             plt.savefig('figs/' + title + '.svg')
             plt.clf()
-            
+    '''
             
     y = scores1_train.numpy()
     plt.plot(x, y, label='distribution score')
     y = transition_scores_mean_train.numpy()
     plt.plot(x, y, label='transition score')
-    y = similarity_score_train.numpy()
+    y = similarity_score1_train.numpy()
     plt.plot(x, y, label='similarity score')
     #plt.ylim(0, 1)
     
@@ -685,7 +693,7 @@ def save_plots_of_train_scores(scores1_train, transition_scores_mean_train, simi
     plt.plot(x, y, label='distribution score')
     y = transition_scores_mean_val.numpy()
     plt.plot(x, y, label='transition score')
-    y = similarity_score_val.numpy()
+    y = similarity_score1_val.numpy()
     plt.plot(x, y, label='similarity score')
     #plt.ylim(0, 1)
     
@@ -745,7 +753,7 @@ def visualize_output(G, size, dataset, sequence_length, ENDPOINT, SEX):
 
     plot_data(data_fake, batch.AGE.view(-1), batch.SEX.view(-1), ENDPOINT, SEX, N=size, save=True, filename='figs/catheat_fake.svg')
     
-def save_frequency_comparisons(data_fake1, data_fake2, vocab_size, ENDPOINT, prefix, N_max):
+def save_frequency_comparisons(data_fake1, data_fake2, vocab_size, ENDPOINT, prefix, N_max, plot=True):
     counts_fake1, _ = get_distribution(data_fake1, None, vocab_size, fake = True)
     counts_fake2, _ = get_distribution(data_fake2, None, vocab_size, fake = True)
 
@@ -754,5 +762,8 @@ def save_frequency_comparisons(data_fake1, data_fake2, vocab_size, ENDPOINT, pre
 
     counts, freqs = get_distribution(None, ENDPOINT, vocab_size, fake = False)
 
-    save_relative_and_absolute(freqs, freqs_fake, counts, counts_fake, vocab_size, ENDPOINT, prefix, N_max)
+    if plot:
+        save_relative_and_absolute(freqs, freqs_fake, counts, counts_fake, vocab_size, ENDPOINT, prefix, N_max)
+        
+    return freqs, freqs_fake, counts, counts_fake
 

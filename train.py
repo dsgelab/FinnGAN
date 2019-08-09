@@ -18,7 +18,7 @@ Tensor = torch.cuda.FloatTensor if cuda else torch.FloatTensor
 
 
             
-def get_modified_batch(batch, ENDPOINT, n = 5):
+def get_modified_batch(batch, ENDPOINT, n = 0):
     data = batch.ENDPOINT.transpose(0, 1).cpu()
     None_i = ENDPOINT.vocab.stoi['None']
     res = [data]
@@ -35,8 +35,11 @@ def get_modified_batch(batch, ENDPOINT, n = 5):
             
         res.append(tmp)
         
-    res = torch.cat(res)
-    
+    if n > 0:
+        res = torch.cat(res)
+    else:
+        res = data
+        
     ages = batch.AGE.repeat(n + 1)
     sexes = batch.SEX.view(-1).repeat(n + 1)
     
@@ -189,6 +192,9 @@ def train_GAN(G, D, train, val, ENDPOINT, batch_size, vocab_size, sequence_lengt
             
             dist_real = get_distribution(train_data, ENDPOINT, vocab_size, ignore_time = False) # [vocab_size, sequence_length]
             dist_fake = get_distribution(fake_data, ENDPOINT, vocab_size, ignore_time = False) # [vocab_size, sequence_length]
+            
+            #transition_matrix_real = get_transition_matrix(train_data, vocab_size, None, ignore_time)
+            #transition_matrix_fake = get_transition_matrix(fake_data, vocab_size, None, ignore_time)
             
             if e % n_critic == 0:
                 # Loss measures generator's ability to fool the discriminator

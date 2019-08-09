@@ -1,4 +1,4 @@
-max_sequence_length = 5
+max_sequence_length = 2017 - 2000 + 1
 
 endpoints = [
     'I9_HYPTENS', 
@@ -17,14 +17,14 @@ endpoints = [
 ]
 
 use_default_params = True
-use_optimal_bs_and_lr = True
+use_optimal_bs_and_lr = False
 
 
 # Generator params
 mem_slots = 1
 head_size = 6
 embed_size = 4
-temperature = 5
+temperature = 100
 num_heads = 6
 num_blocks = 4
 
@@ -34,16 +34,18 @@ n_embeddings = 3
 embed_size = embed_size
 out_channels = 10
 filter_sizes = [2, 3, 4, 5] # values can be at most the sequence_length
-n_critic = 5
+n_critic = 1
+use_aux_info = True 
+use_mbd = True
 mbd_out_features = 4
 mbd_kernel_dims = 2
 
 # Training params
-batch_size = 128*4
+batch_size = 128*16
 #batch_size = 17
 n_epochs = 30
-print_step = max(n_epochs // 20, 1)
-lr = 10 ** -4.3
+print_step = 1#max(n_epochs // 20, 1)
+lr = 5 * 10 ** (-5)
 #lr = 10 ** (-6.864947029352897)
 
 
@@ -56,10 +58,10 @@ dummy_batch_size2 = 10000
 ignore_similar = True
 GAN_type = 'standard'
 
-one_sided_label_smoothing = False
-relativistic_average = None
+one_sided_label_smoothing = True
+relativistic_average = False
 
-params_name = 'transition'
+params_name = 'general'
     
 G_filename = 'models/{}_{}_{}_model.pt'.format(params_name, GAN_type, relativistic_average)
 
@@ -137,9 +139,9 @@ if not use_default_params:
     
 if use_optimal_bs_and_lr:
     if params_name == 'general':
-        parameters = general_params1[0]['params']
+        parameters = general_params1[-1]['params']
     elif params_name == 'transition':
-        parameters = transition_params[0]['params']
+        parameters = transition_params[-1]['params']
 
     batch_size = parameters['batch_size']
     lr = parameters['lr']
