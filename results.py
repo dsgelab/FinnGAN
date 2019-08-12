@@ -107,7 +107,7 @@ def main(use_aux_info, use_mbd, n_endpoints, n_runs):
                             pass
 
 
-            freqs, freqs_fake, counts, counts_fake = save_frequency_comparisons(data_fake1, data_fake2, vocab_size, ENDPOINT, prefix, N_max, plot=False)
+            freqs, freqs_fake, counts, counts_fake = save_frequency_comparisons(data_fake1, data_fake2, vocab_size, ENDPOINT, '', 10, plot=False)
             
             torch.save(freqs, subdir + 'freqs.pt')
             torch.save(freqs_fake, subdir + 'freqs_fake.pt')
