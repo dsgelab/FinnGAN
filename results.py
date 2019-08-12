@@ -12,12 +12,13 @@ from lifelines.utils import ConvergenceError
 
 
 
-def main(use_aux_info, use_mbd, n_endpoints, n_runs):
+def main(use_aux_info, use_mbd, use_gp, n_endpoints, n_runs):
     endpoints_used = endpoints[:n_endpoints] 
     
     args = {
         'use_aux_info': use_aux_info,
         'use_mbd': use_mbd,
+        'use_gp': use_gp,
         'n_endpoints': n_endpoints,
     }
     
@@ -51,7 +52,7 @@ def main(use_aux_info, use_mbd, n_endpoints, n_runs):
             scores1_train, transition_scores_mean_train, similarity_score1_train, similarity_score2_train, mode_collapse_score_train, \
     scores1_val, transition_scores_mean_val, similarity_score1_val, similarity_score2_val, mode_collapse_score_val, \
     accuracies_real, accuracies_fake = train_GAN(
-        G, D, train, val, ENDPOINT, batch_size, vocab_size, sequence_length, n_epochs, lr, temperature, GAN_type, n_critic, print_step, get_scores, ignore_time, dummy_batch_size, ignore_similar, one_sided_label_smoothing, relativistic_average, False
+        G, D, train, val, ENDPOINT, batch_size, vocab_size, sequence_length, n_epochs, lr, temperature, GAN_type, n_critic, print_step, get_scores, ignore_time, dummy_batch_size, ignore_similar, one_sided_label_smoothing, relativistic_average, False, use_gp, lambda_gp
     )
             
             os.mkdir(subdir)
@@ -137,8 +138,9 @@ if __name__ == '__main__':
     
     use_aux_info = True 
     use_mbd = True
+    use_gp = True
     n_endpoints = 6
     #n_endpoints = len(endpoints)
     n_runs = 8
     
-    main(use_aux_info, use_mbd, n_endpoints, n_runs)
+    main(use_aux_info, use_mbd, use_gp, n_endpoints, n_runs)

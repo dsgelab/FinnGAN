@@ -35,7 +35,7 @@ print('Device:', device)
 Tensor = torch.cuda.FloatTensor if cuda else torch.FloatTensor
 
 def main():
-    nrows = 30_000_000
+    nrows = 3_000_000
     train, val, ENDPOINT, AGE, SEX, vocab_size, sequence_length, n_individuals = get_dataset(nrows = nrows)
     
     print('Data loaded, number of individuals:', n_individuals)
@@ -98,7 +98,7 @@ def main():
     scores1_train, transition_scores_mean_train, similarity_score1_train, similarity_score2_train, mode_collapse_score_train, \
     scores1_val, transition_scores_mean_val, similarity_score1_val, similarity_score2_val, mode_collapse_score_val, \
     accuracies_real, accuracies_fake = train_GAN(
-        G, D, train, val, ENDPOINT, batch_size, vocab_size, sequence_length, n_epochs, lr, temperature, GAN_type, n_critic, print_step, get_scores, ignore_time, dummy_batch_size, ignore_similar, one_sided_label_smoothing, relativistic_average, False
+        G, D, train, val, ENDPOINT, batch_size, vocab_size, sequence_length, n_epochs, lr, temperature, GAN_type, n_critic, print_step, get_scores, ignore_time, dummy_batch_size, ignore_similar, one_sided_label_smoothing, relativistic_average, False, use_gp, lambda_gp
     )
     
     

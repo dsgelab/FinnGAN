@@ -49,7 +49,9 @@ class RelGANDiscriminator(nn.Module):
         
         self.output_layer = nn.utils.spectral_norm(nn.Linear(self.hidden2_size // 2 + 1, 1))
         
-    def forward(self, x, age, sex, proportion, dist, return_mean = True, feature_matching = False, return_critic = False):
+        
+        
+    def forward(self, x, age, sex, proportion, dist, embeds = None, return_mean = True, feature_matching = False, return_critic = False):
         '''
             input:
                 x (torch.FloatTensor): onehot of size [batch_size, self.sequence_length, self.vocab_size]
@@ -65,18 +67,26 @@ class RelGANDiscriminator(nn.Module):
         sexes = sexes.unsqueeze(dim = -1) # [batch_size, self.n_embeddings, 1]
         
         if self.use_aux_info:
-            proportion = torch.tensor(proportion).repeat(x.shape[0], self.n_embeddings).type(Tensor)
+            if isinstance(proportion, float):
+                proportion = torch.tensor(proportion)
+            proportion = proportion.view(-1, 1).expand(x.shape[0], self.n_embeddings).type(Tensor)
             proportion = proportion.unsqueeze(dim = -1) # [batch_size, self.n_embeddings, 1]
 
-            dist = dist.view(1, 1, -1) # [1, 1, self.sequence_length * self.vocab_size]
-            dist = dist.repeat(x.shape[0], self.n_embeddings, 1).type(Tensor) # [batch_size, self.n_embeddings, self.sequence_length * self.vocab_size]
+            dist = dist.view(-1, 1, self.sequence_length * self.vocab_size) # [1, 1, self.sequence_length * self.vocab_size]
+            dist = dist.expand(x.shape[0], self.n_embeddings, -1).type(Tensor) # [batch_size, self.n_embeddings, self.sequence_length * self.vocab_size]
             
             #transition = transition.view(1, 1, -1) # [1, 1, (self.vocab_size - 3) ** 2]
             #transition = transition.repeat(x.shape[0], self.n_embeddings, 1).type(Tensor) # [batch_size, self.n_embeddings, (self.vocab_size - 3) ** 2]
+            
+        if embeds is None:
+            embeddings = self.embeddings
+        else:
+            embeddings = embeds # [self.n_embeddings, batch_size, self.sequence_length, self.embed_size]
         
-        for embedding in self.embeddings:
-            # using tensordot instead of matmul because matmul produces "UnsafeViewBackward" grad_fn
-            embed = torch.tensordot(x, embedding.weight, dims = 1)
+        for embed in embeddings:
+            if embeds is None:
+                # using tensordot instead of matmul because matmul produces "UnsafeViewBackward" grad_fn
+                embed = torch.tensordot(x, embed.weight, dims = 1)
             embed = embed.unsqueeze(dim = 1) # Add channel dimension => shape: [batch_size, 1, self.sequence_length, self.embed_size]
             embed = torch.cat([embed, ages], dim = -1) # [batch_size, 1, self.sequence_length, self.embed_size + 1]
             max_pools = []

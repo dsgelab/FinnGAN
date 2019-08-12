@@ -37,6 +37,8 @@ filter_sizes = [2, 3, 4, 5] # values can be at most the sequence_length
 n_critic = 1
 use_aux_info = True 
 use_mbd = True
+use_gp = True
+lambda_gp = 100
 mbd_out_features = 4
 mbd_kernel_dims = 2
 

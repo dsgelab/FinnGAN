@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torchtext
 from torchtext.data import Field, Iterator, Dataset, Example
+import torch.autograd as ag
 from utils import *
 from math import isnan
 import numpy as np
@@ -51,6 +52,44 @@ def get_modified_batch(batch, ENDPOINT, n = 0):
     return res, ages, sexes
             
             
+def cal_gradpen(netD, real_data, fake_data, ages, sexes, proportion, proportion_fake, dist, dist_fake, center=0, alpha=None, LAMBDA=1, device=None):
+    if alpha is not None:
+        alpha = torch.tensor(alpha, device=device)
+    else:
+        alpha = torch.rand(real_data.size(0), 1, device=device)
+    
+    embeds = []
+    
+    for embed in netD.embeddings:
+        embed_real = torch.tensordot(real_data, embed.weight, dims = 1)
+        embed_fake = torch.tensordot(fake_data, embed.weight, dims = 1)
+        
+        alpha1 = alpha.view(-1, 1, 1).expand(embed_real.size())
+        
+        embeds.append(alpha1 * embed_real + ((1 - alpha1) * embed_fake))
+        
+    embeds = torch.stack(embeds)
+    embeds.requires_grad_(True)
+        
+    proportion = proportion * alpha + proportion_fake * (1 - alpha)
+    
+    dist = dist.unsqueeze(0).expand(real_data.size(0), -1, -1).type(Tensor)
+    dist_fake = dist_fake.unsqueeze(0).expand(real_data.size(0), -1, -1).type(Tensor)
+    
+    alpha1 = alpha.view(-1, 1, 1).expand(dist.size())
+    dist = dist * alpha1 + dist_fake * (1 - alpha1)
+
+    disc_interpolates = netD(real_data, ages, sexes, proportion, dist, embeds)
+
+    gradients = ag.grad(outputs=disc_interpolates, inputs=embeds,
+                        grad_outputs=torch.ones(disc_interpolates.size()).to(device),
+                        create_graph=True, retain_graph=True, only_inputs=True)[0]
+
+    gradient_penalty = ((gradients.norm(2, dim=1) - center) ** 2).mean() * LAMBDA
+    return gradient_penalty
+        
+    
+    
 
 def pretrain_generator(G, train, batch_size, vocab_size, sequence_length, n_epochs, lr, ENDPOINT, print_step = 10):
     loss_function = nn.BCELoss()
@@ -102,7 +141,7 @@ def pretrain_generator(G, train, batch_size, vocab_size, sequence_length, n_epoc
             
 # GAN_type is one of ['standard', 'feature matching', 'wasserstein', 'least squares']
 # relativistic_average is one of [None, True, False]
-def train_GAN(G, D, train, val, ENDPOINT, batch_size, vocab_size, sequence_length, n_epochs, lr, temperature, GAN_type, n_critic, print_step = 10, score_fn = get_scores, ignore_time = True, dummy_batch_size = 128, ignore_similar = True, one_sided_label_smoothing = True, relativistic_average = None, searching = False):    
+def train_GAN(G, D, train, val, ENDPOINT, batch_size, vocab_size, sequence_length, n_epochs, lr, temperature, GAN_type, n_critic, print_step = 10, score_fn = get_scores, ignore_time = True, dummy_batch_size = 128, ignore_similar = True, one_sided_label_smoothing = True, relativistic_average = None, searching = False, use_gp = True, lambda_gp = 100):    
     scores_train = []
     scores_val = []
     accuracies_real = []
@@ -271,6 +310,9 @@ def train_GAN(G, D, train, val, ENDPOINT, batch_size, vocab_size, sequence_lengt
                     real_loss = criterionD(D_out_real - D_out_fake, valid)
                     fake_loss = criterionD(D_out_fake - D_out_real, fake)
                 d_loss = (real_loss + fake_loss) * 0.5
+                
+            if use_gp:
+                d_loss += cal_gradpen(D, train_data_one_hot, fake_one_hot.detach(), ages, sexes, proportion, proportion_fake, dist_real, dist_fake, LAMBDA=lambda_gp, device=device)
 
             d_loss.backward()
             optimizer_D.step()
