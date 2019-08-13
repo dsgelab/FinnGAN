@@ -82,11 +82,11 @@ def main(filename):
         plt.axvline(-1, color='k', linestyle='--', label='pretraining')
         plt.legend()
 
-        plt.savefig('figs/result_chi_sqrd.jpeg')
+        plt.savefig('figs/result_{}.jpeg'.format(filename.split('.')[0]))
 
 
 if __name__ == '__main__':
     
-    filename = 'chi-sqrd_train.pt'
+    filename = 'transition_val.pt'
     
     main(filename)
