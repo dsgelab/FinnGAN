@@ -47,7 +47,8 @@ def get_args(dirname):
         if k == 'n_endpoints':
             res[k] = int(v)
         else:
-            res[k] = bool(v)
+            res[k] = v == 'True'
+            #print(v, res[k])
             
     if 'use_gp' not in res:
         res['use_gp'] = False
@@ -55,7 +56,7 @@ def get_args(dirname):
     return res
         
 
-def main(filename, n_endpoints):
+def main(filename):
     plt.style.use(plot_style)
         
     dirnames = glob.glob('results/*/')
@@ -86,9 +87,6 @@ def main(filename, n_endpoints):
 
 if __name__ == '__main__':
     
-    n_endpoints = 6
-    #n_endpoints = len(endpoints)
-    
     filename = 'chi-sqrd_train.pt'
     
-    main(filename, n_endpoints)
+    main(filename)
