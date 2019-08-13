@@ -35,52 +35,60 @@ def smart_label(args):
             strs.append(k + '=True')
             
     return ','.join(strs)
+
+def get_args(dirname):
+    dirs = dirname.split('/')
+    parts = dirs[1].split(' ')
     
+    res = {}
+    
+    for p in parts:
+        k, v = tuple(p.split('='))
+        if k == 'n_endpoints':
+            res[k] = int(v)
+        else:
+            res[k] = bool(v)
+            
+    if 'use_gp' not in res:
+        res['use_gp'] = False
+            
+    return res
         
 
-# TODO: make a loop of folders?
-def main(use_aux_info, use_mbd, use_gp, n_endpoints):
+def main(filename, n_endpoints):
     plt.style.use(plot_style)
-    
-    # TODO: add smart detection of folders without use_gp
-    args = {
-        'use_aux_info': use_aux_info,
-        'use_mbd': use_mbd,
-        #'use_gp': use_gp,
-        'n_endpoints': n_endpoints,
-    }
-    
-    dirname_parts = []
-    
-    for k, v in args.items():
-        dirname_parts.append(k + '=' + str(v))
-    
-    dirnames = glob.glob('results/' + ' '.join(dirname_parts) + '/*/')
-    
-    chi_sqrds = []
-    
-    for seed_dir in dirnames:
-        chi_sqrd = torch.load(seed_dir + 'chi-sqrd_train.pt').numpy()
-        chi_sqrds.append(chi_sqrd)
         
-    chi_sqrds = np.stack(chi_sqrds, axis = 1)
+    dirnames = glob.glob('results/*/')
+    
+    for dirname in dirnames:
+        args = get_args(dirname)
+        print(args)
         
-    x = np.arange(chi_sqrds.shape[0]) - 2
+        subdirnames = glob.glob(dirname + '/*/')
 
-    plt.plot(x, chi_sqrds, c='b', alpha=0.2)
-    plt.plot(x, chi_sqrds.mean(axis = 1), c='b', label=smart_label(args))
-    plt.axvline(-1, color='k', linestyle='--', label='pretraining')
-    plt.legend()
-    
-    plt.savefig('figs/result_chi_sqrd.jpeg')
+        chi_sqrds = []
+
+        for seed_dir in subdirnames:
+            chi_sqrd = torch.load(seed_dir + filename).numpy()
+            chi_sqrds.append(chi_sqrd)
+
+        chi_sqrds = np.stack(chi_sqrds, axis = 1)
+
+        x = np.arange(chi_sqrds.shape[0]) - 2
+
+        plt.plot(x, chi_sqrds, c='b', alpha=0.2)
+        plt.plot(x, chi_sqrds.mean(axis = 1), c='b', label=smart_label(args))
+        plt.axvline(-1, color='k', linestyle='--', label='pretraining')
+        plt.legend()
+
+        plt.savefig('figs/result_chi_sqrd.jpeg')
 
 
 if __name__ == '__main__':
     
-    use_aux_info = True 
-    use_mbd = True
-    use_gp = True
     n_endpoints = 6
     #n_endpoints = len(endpoints)
     
-    main(use_aux_info, use_mbd, use_gp, n_endpoints)
+    filename = 'chi-sqrd_train.pt'
+    
+    main(filename, n_endpoints)
