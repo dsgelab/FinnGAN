@@ -77,16 +77,16 @@ def main(filename):
 
         x = np.arange(chi_sqrds.shape[0]) - 2
 
-        plt.plot(x, chi_sqrds, c='b', alpha=0.2)
-        plt.plot(x, chi_sqrds.mean(axis = 1), c='b', label=smart_label(args))
-        plt.axvline(-1, color='k', linestyle='--', label='pretraining')
-        plt.legend()
-
-        plt.savefig('figs/result_{}.jpeg'.format(filename.split('.')[0]))
+        #plt.plot(x, chi_sqrds, c='b', alpha=0.2)
+        plt.plot(x, chi_sqrds.mean(axis = 1), label=smart_label(args))
+    
+    plt.axvline(-1, color='k', linestyle='--', label='pretraining')
+    plt.legend()
+    plt.savefig('figs/result_{}.jpeg'.format(filename.split('.')[0]))
 
 
 if __name__ == '__main__':
     
-    filename = 'transition_val.pt'
+    filename = 'chi-sqrd_val.pt'
     
     main(filename)
