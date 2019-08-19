@@ -58,7 +58,7 @@ dummy_batch_size = 256
 dummy_batch_size2 = 10000
 
 ignore_similar = True
-GAN_type = 'standard'
+GAN_type = 'feature matching'
 
 one_sided_label_smoothing = True
 relativistic_average = False

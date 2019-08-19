@@ -52,6 +52,9 @@ def get_args(dirname):
             
     if 'use_gp' not in res:
         res['use_gp'] = False
+        
+    if 'feature_matching' not in res:
+        res['feature_matching'] = False
             
     return res
         

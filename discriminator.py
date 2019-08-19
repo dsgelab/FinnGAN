@@ -109,13 +109,13 @@ class RelGANDiscriminator(nn.Module):
         if self.use_aux_info:
             hidden = torch.cat([hidden, proportion, dist], dim = -1) # [batch_size, self.n_embeddings, self.n_total_out_channels + 1 (+ self.mbd_out_features) + 1 + self.sequence_length * self.vocab_size]# + (self.vocab_size - 3) ** 2]
         
+        hidden = self.hidden1(hidden) # [batch_size, self.n_embeddings, self.hidden2_size]
+        hidden = F.relu(hidden)
+        
         features = hidden.view(hidden.shape[0], -1)
             
         if feature_matching:
             return features
-        
-        hidden = self.hidden1(hidden) # [batch_size, self.n_embeddings, self.hidden2_size]
-        hidden = F.relu(hidden)
         
         hidden = self.hidden2(hidden) # [batch_size, self.n_embeddings, self.hidden2_size // 2 + 1]
         hidden = F.relu(hidden)

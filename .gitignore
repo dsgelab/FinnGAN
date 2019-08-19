@@ -13,3 +13,4 @@ search_results/
 optim_results/
 models/
 results/
+*.zip

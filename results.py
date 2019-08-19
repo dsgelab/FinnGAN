@@ -11,7 +11,6 @@ from survival_analysis import analyse
 from lifelines.utils import ConvergenceError
 
 
-
 def main(use_aux_info, use_mbd, use_gp, n_endpoints, n_runs):
     endpoints_used = endpoints[:n_endpoints] 
     
@@ -20,6 +19,7 @@ def main(use_aux_info, use_mbd, use_gp, n_endpoints, n_runs):
         'use_mbd': use_mbd,
         'use_gp': use_gp,
         'n_endpoints': n_endpoints,
+        'feature_matching': feature_matching,
     }
     
     dirname_parts = []
@@ -30,6 +30,10 @@ def main(use_aux_info, use_mbd, use_gp, n_endpoints, n_runs):
     dirname = 'results/' + ' '.join(dirname_parts) + '/'
     if not os.path.exists(dirname):
         os.mkdir(dirname)
+        
+    
+    if feature_matching:
+        GAN_type = 'feature matching'
         
             
     nrows = 300_000_000
@@ -136,9 +140,10 @@ def main(use_aux_info, use_mbd, use_gp, n_endpoints, n_runs):
 
 if __name__ == '__main__':
     
-    use_aux_info = True 
-    use_mbd = True
-    use_gp = True
+    use_aux_info = False 
+    use_mbd = False
+    use_gp = False
+    feature_matching = True
     n_endpoints = 6
     #n_endpoints = len(endpoints)
     n_runs = 8
