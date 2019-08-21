@@ -132,7 +132,77 @@ def plot_boxes(filename):
     plt.savefig('figs/' + title + '.png')
     plt.clf()
 
-# TODO: plot survival functions of all runs at once (per technique)?
+
+def plot_hr(predictor_name, event_name):
+    plt.style.use(plot_style)
+
+    dirnames = glob.glob('results/*/')
+
+    clean_names = {
+        'I9_HEARTFAIL_NS': 'heart failure',
+        'I9_HYPTENS': 'hypertension',
+        'I9_STR_EXH': 'stroke',
+        'C3_BREAST': 'breast cancer',
+        'I9_CHD': 'CHD',
+        'I9_ANGINA': 'angina'
+    }
+
+    for dirname in dirnames:
+        args = get_args(dirname)
+
+        subdirnames = glob.glob(dirname + '/*/')
+
+        real_hrs = []
+        fake_hrs = []
+
+        for seed_dir in subdirnames:
+            filename = seed_dir + predictor_name + '->' + event_name + '_hr_real_val.csv'
+            if os.path.exists(filename):
+                df = pd.read_csv(
+                    filename,
+                    header = None,
+                    index_col = 0
+                )
+                real_hrs.append(df.values[0])
+            filename = seed_dir + predictor_name + '->' + event_name + '_hr_fake_val.csv'
+            if os.path.exists(filename):
+                df = pd.read_csv(
+                    filename,
+                    header = None,
+                    index_col = 0
+                )
+                fake_hrs.append(df.values[0])
+
+        real_hrs = np.concatenate(real_hrs)
+        fake_hrs = np.concatenate(fake_hrs)
+
+        color_list = ['#CF9821', '#98CF21', '#21CF98', '#CF2198', '#2198CF', '#9821CF']
+
+        data = [real_hrs, fake_hrs]
+
+        pos = np.arange(1, len(data) + 1)
+        for p in pos:
+            plt.boxplot(
+                data[p - 1],
+                positions = [p],
+                widths=0.4,
+                patch_artist=True,
+                boxprops = dict(facecolor=color_list[p - 1], alpha=1),
+                medianprops = dict(color='k')
+            )
+
+
+        plt.xticks(pos, ['real', 'generated'])
+        title = smart_label(args) + '_' +  predictor_name + '->' + event_name + '_hr'
+        #plt.title(title)
+        #plt.show()
+        plt.ylabel('Hazard ratio')
+        if get_true_count(args) <= 1:
+            plt.savefig('figs/' + title + '.png')
+        plt.clf()
+
+
+
 def plot_survival(predictor_name, event_name):
     plt.style.use(plot_style)
 
@@ -235,3 +305,4 @@ if __name__ == '__main__':
     event_name = 'I9_CHD'
 
     plot_survival(predictor_name, event_name)
+    plot_hr(predictor_name, event_name)
