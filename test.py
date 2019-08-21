@@ -157,21 +157,30 @@ def simulate_training():
     
 if __name__ == '__main__':
 
-    a = torch.randn(2, 4, 3)
-    print(a)
-    print()
-    print(a.view(a.shape[0], -1))
-    b = torch.cat([a, torch.ones(a.shape[:2]).unsqueeze(-1)], dim = -1)
-    print(b)
     
-    '''
-    
-    nrows = 300_000_000
+    nrows = 3_000_000
     train, val, ENDPOINT, AGE, SEX, vocab_size, sequence_length, n_individuals = get_dataset(nrows = nrows)
     print('Data loaded, number of individuals:', n_individuals)
     
-    data = next(iter(Iterator(train, batch_size = n_individuals))).ENDPOINT.transpose(0, 1)
-    print(1.0 - data.unique(dim = 0).shape[0] / data.shape[0]) # 0.771352528429712 (nrows = 300_000_000)
+    batch = next(iter(Iterator(train, batch_size = n_individuals)))
+    
+    data = batch.ENDPOINT.transpose(0, 1)
+    data_unique, inverse, counts = data.unique(dim = 0, return_inverse = True, return_counts = True)
+    ages = batch.AGE[inverse]
+    sexes = batch.SEX.view(-1)[inverse]
+    print(1.0 - data_unique.shape[0] / data.shape[0]) # 0.771352528429712 (nrows = 300_000_000)
+    
+    counts, idx = counts.sort(descending = True)
+    print(counts[:10])
+    data_unique = data_unique[idx]
+    ages = ages[idx]
+    sexes = sexes[idx]
+    
+    plot_data(data_unique, None, None, ENDPOINT, None, private=True, N=10, save=True, filename='figs/catheat_private.svg')
+    plot_data(data_unique, ages, sexes, ENDPOINT, SEX, private=False, N=10, save=True, filename='figs/catheat.svg')
+    
+    '''
+    
     
     G = RelationalMemoryGenerator(mem_slots, head_size, embed_size, vocab_size, temperature, num_heads, num_blocks)
     G.load_state_dict(torch.load(G_filename))
