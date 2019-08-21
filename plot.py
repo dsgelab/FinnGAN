@@ -1,9 +1,12 @@
 import matplotlib.pyplot as plt
+import pandas as pd
 from utils import *
 from params import *
 import glob
 import torch
 from collections import OrderedDict
+from survival_analysis import plot_survival_functions
+import os
 
 def get_true_count(args):
     true_count = 0
@@ -95,7 +98,15 @@ def plot_boxes(filename):
     #data_dict = sorted(data_dict.items(), key=lambda kv: np.median(kv[1]))
     #data_dict = OrderedDict(data_dict)
 
-    color_list = ['#CF9821', '#98CF21', '#21CF98', '#CF2198', '#2198CF']
+    color_list = ['#CF9821', '#98CF21', '#21CF98', '#CF2198', '#2198CF', '#9821CF']
+    keys = ['BASE', 'MLE', 'MBD', 'FM', '0-GP', 'AUX']
+    ylabels = {
+        'chi-sqrd': 'Chi-squared metric',
+        'transition': 'Transition metric',
+        'similarity1': 'Similairty metric (all sequences)',
+        'similarity2': 'Similairty metric (unique sequences)',
+        'mode_collapse': 'Mode collapse metric',
+    }
 
     pos = np.arange(1, len(data_dict) + 1)
     for p in pos:
@@ -104,22 +115,80 @@ def plot_boxes(filename):
         #for pc in parts['bodies']:
         #    pc.set_alpha(1)
         plt.boxplot(
-            list(data_dict.values())[p - 1],
+            data_dict[keys[p - 1]],
             positions = [p],
             widths=0.4,
             patch_artist=True,
-            boxprops = dict(facecolor=color_list[p - 1], alpha=0.7),
+            boxprops = dict(facecolor=color_list[p - 1], alpha=1),
             medianprops = dict(color='k')
         )
 
 
+    plt.xticks(pos, keys)
+    title = filename.split('_val.pt')[0]
+    #plt.title(title)
+    #plt.show()
+    plt.ylabel(ylabels[title])
+    plt.savefig('figs/' + title + '.png')
+    plt.clf()
+
+# TODO: plot survival functions of all runs at once (per technique)?
+def plot_survival(predictor_name, event_name):
+    plt.style.use(plot_style)
+
+    dirnames = glob.glob('results/*/')
+
+    clean_names = {
+        'I9_HEARTFAIL_NS': 'heart failure',
+        'I9_HYPTENS': 'hypertension',
+        'I9_STR_EXH': 'stroke',
+        'C3_BREAST': 'breast cancer',
+        'I9_CHD': 'CHD',
+        'I9_ANGINA': 'angina'
+    }
+
+    for dirname in dirnames:
+        args = get_args(dirname)
+
+        subdirnames = glob.glob(dirname + '/*/')
+
+        dfs = []
+        flag = True
+
+        for seed_dir in subdirnames:
+            filename = seed_dir + predictor_name + '->' + event_name + '_val.csv'
+            if os.path.exists(filename):
+                df = pd.read_csv(
+                    filename,
+                    index_col = 0
+                )
+                df = df.fillna(method='ffill')
+                dfs.append(df if flag else df.iloc[:, 2:])
+                if flag:
+                    flag = False
+                #plot_survival_functions(df, clean_names, event_name, predictor_name, False, False)
+
+        df = pd.concat(dfs, axis = 1)
+
+        plt.plot(df.iloc[:, 0], linestyle='-', color='b')
+        plt.plot(df.iloc[:, 1], linestyle='-', color='g')
+        plt.plot(df.iloc[:, 2], linestyle='--', color='b', alpha=0.5)
+        plt.plot(df.iloc[:, 3], linestyle='--', color='g', alpha=0.5)
+        if len(df.columns) > 4:
+            plt.plot(df.iloc[:, 4::2], linestyle='--', color='b', alpha=0.5)
+            plt.plot(df.iloc[:, 5::2], linestyle='--', color='g', alpha=0.5)
+        plt.legend(df.columns[:4])
+
+        plt.ylabel('Survival probability of developing {}'.format(clean_names[event_name] if event_name in clean_names else event_name))
+        plt.xlabel('Time in years')
+
+        if get_true_count(args) <= 1:
+            plt.savefig('figs/{}_survival_{}->{}.png'.format(smart_label(args), predictor_name, event_name))
+        plt.clf()
 
 
-    plt.xticks(pos, data_dict.keys())
-    plt.title(filename.split('_val.pt')[0])
 
-    plt.show()
-
+# TODO: change this to something reasonnable
 def main(filename):
     plt.style.use(plot_style)
 
@@ -146,7 +215,7 @@ def main(filename):
 
     plt.axvline(-1, color='k', linestyle='--', label='pretraining')
     plt.legend()
-    plt.savefig('figs/result_{}.svg'.format(filename.split('.')[0]))
+    plt.savefig('figs/result_{}.png'.format(filename.split('.')[0]))
 
 
 if __name__ == '__main__':
@@ -161,3 +230,8 @@ if __name__ == '__main__':
 
     for filename in filenames:
         plot_boxes(filename)
+
+    predictor_name = 'C3_BREAST'
+    event_name = 'I9_CHD'
+
+    plot_survival(predictor_name, event_name)
