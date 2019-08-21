@@ -706,30 +706,51 @@ def save_plots_of_train_scores(scores1_train, transition_scores_mean_train, simi
     
     
     
-def plot_data(data, ages, sexes, ENDPOINT, SEX, N=10, save=True, filename='figs/catheat.svg'):
+def plot_data(data, ages, sexes, ENDPOINT, SEX, private = False, N=10, save=True, filename='figs/catheat.svg'):
     plt.style.use(plot_style)
     
-    data = data[:N, :].cpu().numpy()
+    data = data[:N, :]
+    endpoints = data.view(-1).unique()
+    endpoints = endpoints[endpoints != ENDPOINT.vocab.stoi['None']].cpu().numpy()
+    data = data.cpu().numpy()
     
-    new_data = np.empty(data.shape, dtype = 'object')
-    for row, col in itertools.product(range(data.shape[0]), range(data.shape[1])):
-        new_data[row, col] = ENDPOINT.vocab.itos[data[row, col]]
-    
-    cmap = {
-        'None': '#FFFFFF',
-        'I9_HYPTENS': '#00FFDB', 
-        'I9_ANGINA': '#00AF66', 
-        'I9_HEARTFAIL_NS': '#FF88FF', 
-        'I9_STR_EXH': '#8D88D6', 
-        'I9_CHD': '#0073D6', 
-        'C3_BREAST': '#BE1200',
-    }
+    if not private:
+        new_data = np.empty(data.shape, dtype = 'object')
+        for row, col in itertools.product(range(data.shape[0]), range(data.shape[1])):
+            new_data[row, col] = ENDPOINT.vocab.itos[data[row, col]]
+    else:
+        new_data = np.empty(data.shape, dtype = 'object')
+        for row, col in itertools.product(range(data.shape[0]), range(data.shape[1])):
+            if ENDPOINT.vocab.itos[data[row, col]] == 'None':
+                new_data[row, col] = 'None'
+            else:
+                new_data[row, col] = 'endpoint{}'.format(np.arange(len(endpoints))[endpoints == data[row, col]][0])
+        
+    if not private:
+        cmap = {
+            'None': '#FFFFFF',
+            'I9_HYPTENS': '#00FFDB', 
+            'I9_ANGINA': '#00AF66', 
+            'I9_HEARTFAIL_NS': '#FF88FF', 
+            'I9_STR_EXH': '#8D88D6', 
+            'I9_CHD': '#0073D6', 
+            'C3_BREAST': '#BE1200',
+        }
+    else:
+        cmap = {
+            'None': '#FFFFFF',
+        }
     
     fig, ax = plt.subplots(figsize=(8, 5))
     ax = catheat.heatmap(new_data, cmap = cmap, ax = ax, linewidths = .5, leg_pos = 'top')
     
-    labels = list(map(lambda x: SEX.vocab.itos[sexes[x]] + ', ' + str(int(ages[x])), range(N)))
+    if not private:
+        labels = list(map(lambda x: SEX.vocab.itos[sexes[x]] + ', ' + str(int(ages[x])), range(N)))
+    else:
+        labels = ['subject{}'.format(i) for i in range(N)]
     plt.yticks(np.arange(N) + 0.5, labels, rotation = 0)
+    
+    plt.xlabel('Time in years')
     
     if save:
         plt.savefig(filename)

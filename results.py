@@ -33,7 +33,9 @@ def main(use_aux_info, use_mbd, use_gp, n_endpoints, n_runs):
         
     
     if feature_matching:
-        GAN_type = 'feature matching'
+        GAN_type1 = 'feature matching'
+    else:
+        GAN_type1 = GAN_type
         
             
     nrows = 300_000_000
@@ -56,7 +58,7 @@ def main(use_aux_info, use_mbd, use_gp, n_endpoints, n_runs):
             scores1_train, transition_scores_mean_train, similarity_score1_train, similarity_score2_train, mode_collapse_score_train, \
     scores1_val, transition_scores_mean_val, similarity_score1_val, similarity_score2_val, mode_collapse_score_val, \
     accuracies_real, accuracies_fake = train_GAN(
-        G, D, train, val, ENDPOINT, batch_size, vocab_size, sequence_length, n_epochs, lr, temperature, GAN_type, n_critic, print_step, get_scores, ignore_time, dummy_batch_size, ignore_similar, one_sided_label_smoothing, relativistic_average, False, use_gp, lambda_gp
+        G, D, train, val, ENDPOINT, batch_size, vocab_size, sequence_length, n_epochs, lr, temperature, GAN_type1, n_critic, print_step, get_scores, ignore_time, dummy_batch_size, ignore_similar, one_sided_label_smoothing, relativistic_average, False, use_gp, lambda_gp
     )
             
             os.mkdir(subdir)
@@ -142,10 +144,10 @@ if __name__ == '__main__':
     
     use_aux_info = False 
     use_mbd = False
-    use_gp = False
-    feature_matching = True
-    n_endpoints = 6
-    #n_endpoints = len(endpoints)
+    use_gp = True
+    feature_matching = False
+    #n_endpoints = 6
+    n_endpoints = len(endpoints)
     n_runs = 8
     
     main(use_aux_info, use_mbd, use_gp, n_endpoints, n_runs)
