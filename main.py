@@ -104,6 +104,7 @@ def main():
     
     print('Time taken:', round_to_n(time.time() - start_time, n = 3), 'seconds')
     
+    torch.save(G.state_dict(), G_filename)
 
     G.eval()
     
@@ -112,18 +113,6 @@ def main():
     data1, ages1, sexes1, data_fake1, ages_fake1, sexes_fake1 = get_real_and_fake_data(G, train, ignore_similar, dummy_batch_size, sequence_length, True)
     
     data2, ages2, sexes2, data_fake2, ages_fake2, sexes_fake2 = get_real_and_fake_data(G, val, ignore_similar, dummy_batch_size, sequence_length, True)
-    
-    predictor_name = 'I9_STR_EXH'
-    event_name = 'I9_HEARTFAIL_NS'
-    
-    analyse(data1, data_fake1, False, True, ENDPOINT, event_name, predictor_name)
-    analyse(data2, data_fake2, False, False, ENDPOINT, event_name, predictor_name)
-    
-    predictor_name = 'I9_ANGINA'
-    event_name = 'I9_HYPTENS'
-    
-    analyse(data1, data_fake1, False, True, ENDPOINT, event_name, predictor_name)
-    analyse(data2, data_fake2, False, False, ENDPOINT, event_name, predictor_name)
     
 
     save_frequency_comparisons(data_fake1, data_fake2, vocab_size, ENDPOINT, prefix, N_max)    
@@ -138,6 +127,20 @@ def main():
     
     test_generator(data2, ages2, sexes2, data_fake2, ages_fake2, sexes_fake2, False, False, ENDPOINT, SEX, vocab_size, sequence_length)
     
+    
+    predictor_name = 'I9_STR_EXH'
+    event_name = 'I9_HEARTFAIL_NS'
+    
+    analyse(data1, data_fake1, False, True, ENDPOINT, event_name, predictor_name)
+    analyse(data2, data_fake2, False, False, ENDPOINT, event_name, predictor_name)
+    
+    predictor_name = 'I9_ANGINA'
+    event_name = 'I9_HYPTENS'
+    
+    analyse(data1, data_fake1, False, True, ENDPOINT, event_name, predictor_name)
+    analyse(data2, data_fake2, False, False, ENDPOINT, event_name, predictor_name)
+    
+    
     save(data1, data_fake1, train = True)
     save(data2, data_fake2, train = False)
     
@@ -146,7 +149,6 @@ def main():
     test_size = 10
     visualize_output(G, test_size, val, sequence_length, ENDPOINT, SEX)
     
-    torch.save(G.state_dict(), G_filename)
 
 if __name__ == '__main__':
     main()
