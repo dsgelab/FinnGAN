@@ -70,7 +70,7 @@ def get_args(dirname):
 def data_dict_key(item):
     return np.median(item)
 
-def plot_boxes(filename):
+def plot_boxes(filename, n_endpoints):
     plt.style.use(plot_style)
 
     dirnames = glob.glob('results/*/')
@@ -80,26 +80,32 @@ def plot_boxes(filename):
     for dirname in dirnames:
         args = get_args(dirname)
 
-        subdirnames = glob.glob(dirname + '/*/')
+        if args['n_endpoints'] == n_endpoints:
+            subdirnames = glob.glob(dirname + '/*/')
 
-        tmp_data = []
+            tmp_data = []
 
-        for seed_dir in subdirnames:
-            tmp = torch.load(seed_dir + filename).numpy()
-            tmp_data.append(tmp)
+            for seed_dir in subdirnames:
+                tmp = torch.load(seed_dir + filename).numpy()
+                tmp_data.append(tmp)
 
-        tmp_data = np.stack(tmp_data, axis = 1)
+            tmp_data = np.stack(tmp_data, axis = 1)
 
-        if get_true_count(args) <= 1:
-            data_dict[smart_label(args)] = tmp_data[-1, :]
+            if get_true_count(args) <= 1:
+                data_dict[smart_label(args)] = tmp_data[-1, :]
 
     data_dict['MLE'] = tmp_data[1, :] # MLE/pretraining
 
     #data_dict = sorted(data_dict.items(), key=lambda kv: np.median(kv[1]))
     #data_dict = OrderedDict(data_dict)
 
-    color_list = ['#CF9821', '#98CF21', '#21CF98', '#CF2198', '#2198CF', '#9821CF']
-    keys = ['BASE', 'MLE', 'MBD', 'FM', '0-GP', 'AUX']
+    if n_endpoints == 6:
+        color_list = ['#CF9821', '#98CF21', '#21CF98', '#CF2198', '#2198CF', '#9821CF']
+        keys = ['BASE', 'MLE', 'MBD', 'FM', '0-GP', 'AUX']
+    elif n_endpoints == 13:
+        color_list = ['#98CF21', '#CF2198']
+        keys = ['MLE', 'FM']
+
     ylabels = {
         'chi-sqrd': 'Chi-squared metric',
         'transition': 'Transition metric',
@@ -129,11 +135,11 @@ def plot_boxes(filename):
     #plt.title(title)
     #plt.show()
     plt.ylabel(ylabels[title])
-    plt.savefig('figs/' + title + '.png')
+    plt.savefig('figs/{}_'.format(n_endpoints) + title + '.png')
     plt.clf()
 
 
-def plot_hr(predictor_name, event_name):
+def plot_hr(predictor_name, event_name, n_endpoints):
     plt.style.use(plot_style)
 
     dirnames = glob.glob('results/*/')
@@ -150,60 +156,61 @@ def plot_hr(predictor_name, event_name):
     for dirname in dirnames:
         args = get_args(dirname)
 
-        subdirnames = glob.glob(dirname + '/*/')
+        if args['n_endpoints'] == n_endpoints:
+            subdirnames = glob.glob(dirname + '/*/')
 
-        real_hrs = []
-        fake_hrs = []
+            real_hrs = []
+            fake_hrs = []
 
-        for seed_dir in subdirnames:
-            filename = seed_dir + predictor_name + '->' + event_name + '_hr_real_val.csv'
-            if os.path.exists(filename):
-                df = pd.read_csv(
-                    filename,
-                    header = None,
-                    index_col = 0
+            for seed_dir in subdirnames:
+                filename = seed_dir + predictor_name + '->' + event_name + '_hr_real_val.csv'
+                if os.path.exists(filename):
+                    df = pd.read_csv(
+                        filename,
+                        header = None,
+                        index_col = 0
+                    )
+                    real_hrs.append(df.values[0])
+                filename = seed_dir + predictor_name + '->' + event_name + '_hr_fake_val.csv'
+                if os.path.exists(filename):
+                    df = pd.read_csv(
+                        filename,
+                        header = None,
+                        index_col = 0
+                    )
+                    fake_hrs.append(df.values[0])
+
+            real_hrs = np.concatenate(real_hrs)
+            fake_hrs = np.concatenate(fake_hrs)
+
+            color_list = ['#CF9821', '#98CF21', '#21CF98', '#CF2198', '#2198CF', '#9821CF']
+
+            data = [real_hrs, fake_hrs]
+
+            pos = np.arange(1, len(data) + 1)
+            for p in pos:
+                plt.boxplot(
+                    data[p - 1],
+                    positions = [p],
+                    widths=0.4,
+                    patch_artist=True,
+                    boxprops = dict(facecolor=color_list[p - 1], alpha=1),
+                    medianprops = dict(color='k')
                 )
-                real_hrs.append(df.values[0])
-            filename = seed_dir + predictor_name + '->' + event_name + '_hr_fake_val.csv'
-            if os.path.exists(filename):
-                df = pd.read_csv(
-                    filename,
-                    header = None,
-                    index_col = 0
-                )
-                fake_hrs.append(df.values[0])
-
-        real_hrs = np.concatenate(real_hrs)
-        fake_hrs = np.concatenate(fake_hrs)
-
-        color_list = ['#CF9821', '#98CF21', '#21CF98', '#CF2198', '#2198CF', '#9821CF']
-
-        data = [real_hrs, fake_hrs]
-
-        pos = np.arange(1, len(data) + 1)
-        for p in pos:
-            plt.boxplot(
-                data[p - 1],
-                positions = [p],
-                widths=0.4,
-                patch_artist=True,
-                boxprops = dict(facecolor=color_list[p - 1], alpha=1),
-                medianprops = dict(color='k')
-            )
 
 
-        plt.xticks(pos, ['real', 'generated'])
-        title = smart_label(args) + '_' +  predictor_name + '->' + event_name + '_hr'
-        #plt.title(title)
-        #plt.show()
-        plt.ylabel('Hazard ratio')
-        if get_true_count(args) <= 1:
-            plt.savefig('figs/' + title + '.png')
-        plt.clf()
+            plt.xticks(pos, ['real', 'generated'])
+            title = smart_label(args) + '_' +  predictor_name + '->' + event_name + '_hr'
+            #plt.title(title)
+            #plt.show()
+            plt.ylabel('Hazard ratio')
+            if get_true_count(args) <= 1:
+                plt.savefig('figs/{}_'.format(n_endpoints) + title + '.png')
+            plt.clf()
 
 
 
-def plot_survival(predictor_name, event_name):
+def plot_survival(predictor_name, event_name, n_endpoints):
     plt.style.use(plot_style)
 
     dirnames = glob.glob('results/*/')
@@ -220,75 +227,147 @@ def plot_survival(predictor_name, event_name):
     for dirname in dirnames:
         args = get_args(dirname)
 
-        subdirnames = glob.glob(dirname + '/*/')
+        if args['n_endpoints'] == n_endpoints:
+            subdirnames = glob.glob(dirname + '/*/')
 
-        dfs = []
-        flag = True
+            dfs = []
+            flag = True
 
-        for seed_dir in subdirnames:
-            filename = seed_dir + predictor_name + '->' + event_name + '_val.csv'
-            if os.path.exists(filename):
-                df = pd.read_csv(
-                    filename,
-                    index_col = 0
-                )
-                df = df.fillna(method='ffill')
-                dfs.append(df if flag else df.iloc[:, 2:])
-                if flag:
-                    flag = False
-                #plot_survival_functions(df, clean_names, event_name, predictor_name, False, False)
+            for seed_dir in subdirnames:
+                filename = seed_dir + predictor_name + '->' + event_name + '_val.csv'
+                if os.path.exists(filename):
+                    df = pd.read_csv(
+                        filename,
+                        index_col = 0
+                    )
+                    df = df.fillna(method='ffill')
+                    dfs.append(df if flag else df.iloc[:, 2:])
+                    if flag:
+                        flag = False
+                    #plot_survival_functions(df, clean_names, event_name, predictor_name, False, False)
 
-        df = pd.concat(dfs, axis = 1)
+            df = pd.concat(dfs, axis = 1)
 
-        plt.plot(df.iloc[:, 0], linestyle='-', color='b')
-        plt.plot(df.iloc[:, 1], linestyle='-', color='g')
-        plt.plot(df.iloc[:, 2], linestyle='--', color='b', alpha=0.5)
-        plt.plot(df.iloc[:, 3], linestyle='--', color='g', alpha=0.5)
-        if len(df.columns) > 4:
-            plt.plot(df.iloc[:, 4::2], linestyle='--', color='b', alpha=0.5)
-            plt.plot(df.iloc[:, 5::2], linestyle='--', color='g', alpha=0.5)
-        plt.legend(df.columns[:4])
+            plt.plot(df.iloc[:, 0], linestyle='-', color='b')
+            plt.plot(df.iloc[:, 1], linestyle='-', color='g')
+            plt.plot(df.iloc[:, 2], linestyle='--', color='b', alpha=0.5)
+            plt.plot(df.iloc[:, 3], linestyle='--', color='g', alpha=0.5)
+            if len(df.columns) > 4:
+                plt.plot(df.iloc[:, 4::2], linestyle='--', color='b', alpha=0.5)
+                plt.plot(df.iloc[:, 5::2], linestyle='--', color='g', alpha=0.5)
+            plt.legend(df.columns[:4])
 
-        plt.ylabel('Survival probability of developing {}'.format(clean_names[event_name] if event_name in clean_names else event_name))
-        plt.xlabel('Time in years')
+            plt.ylabel('Survival probability of developing {}'.format(clean_names[event_name] if event_name in clean_names else event_name))
+            plt.xlabel('Time in years')
 
-        if get_true_count(args) <= 1:
-            plt.savefig('figs/{}_survival_{}->{}.png'.format(smart_label(args), predictor_name, event_name))
-        plt.clf()
+            if get_true_count(args) <= 1:
+                plt.savefig('figs/{}_{}_survival_{}->{}.png'.format(n_endpoints, smart_label(args), predictor_name, event_name))
+            plt.clf()
 
 
-
-# TODO: change this to something reasonnable
-def main(filename):
+def plot_chi_sqrd_boxes_without_None(n_endpoints):
     plt.style.use(plot_style)
 
     dirnames = glob.glob('results/*/')
 
+    data_dict = {}
+
     for dirname in dirnames:
         args = get_args(dirname)
-        print(args)
 
-        subdirnames = glob.glob(dirname + '/*/')
+        if args['n_endpoints'] == n_endpoints:
+            subdirnames = glob.glob(dirname + '/*/')
 
-        chi_sqrds = []
+            tmp_data = []
 
-        for seed_dir in subdirnames:
-            chi_sqrd = torch.load(seed_dir + filename).numpy()
-            chi_sqrds.append(chi_sqrd)
+            for seed_dir in subdirnames:
+                freqs = torch.load(seed_dir + 'freqs.pt')
+                freqs_fake = torch.load(seed_dir + 'freqs_fake.pt')
+                tmp = chi_sqrd_dist(freqs[1:], freqs_fake[1:]).numpy()
+                tmp_data.append(tmp)
 
-        chi_sqrds = np.stack(chi_sqrds, axis = 1)
+            tmp_data = np.stack(tmp_data)
 
-        x = np.arange(chi_sqrds.shape[0]) - 2
+            if get_true_count(args) <= 1: #and (args['use_gp'] or args['feature_matching']):
+                data_dict[smart_label(args)] = tmp_data
 
-        #plt.plot(x, chi_sqrds, c='b', alpha=0.2)
-        plt.plot(x, chi_sqrds.mean(axis = 1), label=smart_label(args))
+    if n_endpoints == 6:
+        color_list = ['#CF9821', '#21CF98', '#CF2198', '#2198CF', '#9821CF']
+        keys = ['BASE', 'MBD', 'FM', '0-GP', 'AUX']
+    elif n_endpoints == 13:
+        color_list = ['#CF2198']
+        keys = ['FM']
+    # color_list = ['#CF2198', '#2198CF']
+    # keys = ['FM', '0-GP']
 
-    plt.axvline(-1, color='k', linestyle='--', label='pretraining')
-    plt.legend()
-    plt.savefig('figs/result_{}.png'.format(filename.split('.')[0]))
+    pos = np.arange(1, len(data_dict) + 1)
+    for p in pos:
+        plt.boxplot(
+            data_dict[keys[p - 1]],
+            positions = [p],
+            widths=0.4,
+            patch_artist=True,
+            boxprops = dict(facecolor=color_list[p - 1], alpha=1),
+            medianprops = dict(color='k')
+        )
+
+
+    plt.xticks(pos, keys)
+    title = 'Chi-squared distances without "None"'
+    #plt.title(title)
+    #plt.show()
+    plt.ylabel(title)
+    plt.savefig('figs/{}_'.format(n_endpoints) + title + '.png')
+    plt.clf()
+
+
+
+
+def main(n_endpoints):
+    plt.style.use('classic')
+    plt.style.use(plot_style)
+
+    dirnames = glob.glob('results/*/0/')
+
+    endpoints = [
+        'None',
+        'I9_HEARTFAIL_NS',
+        'I9_HYPTENS',
+        'I9_CHD',
+        'I9_ANGINA',
+        'I9_STR_EXH',
+        'C3_BREAST',
+    ]
+
+    for dirname in dirnames:
+        args = get_args(dirname)
+
+        if args['n_endpoints'] == n_endpoints:
+            freqs = torch.load(dirname + 'freqs.pt').numpy()
+            freqs_fake = torch.load(dirname + 'freqs_fake.pt').numpy()
+
+            x = np.arange(len(endpoints))
+
+            fig, ax = plt.subplots(figsize=(6,6))
+
+            width = 0.35
+            ax.bar(x, freqs, width, bottom=0, label='real')
+            ax.bar(x + width, freqs_fake, width, bottom=0, label='generated')
+            ax.set_xticks(x + width / 2)
+            ax.set_xticklabels(endpoints, rotation=90)
+            ax.legend()
+
+            ax.autoscale_view()
+            fig.subplots_adjust(bottom=0.36)
+
+            plt.savefig('figs/{}_freqs_{}.png'.format(n_endpoints, smart_label(args)))
+            plt.clf()
 
 
 if __name__ == '__main__':
+    n_endpoints = 13
+
+    plot_chi_sqrd_boxes_without_None(n_endpoints)
 
     filenames = [
         'chi-sqrd_val.pt',
@@ -299,10 +378,12 @@ if __name__ == '__main__':
     ]
 
     for filename in filenames:
-        plot_boxes(filename)
+        plot_boxes(filename, n_endpoints)
 
     predictor_name = 'C3_BREAST'
     event_name = 'I9_CHD'
 
-    plot_survival(predictor_name, event_name)
-    plot_hr(predictor_name, event_name)
+    plot_survival(predictor_name, event_name, n_endpoints)
+    plot_hr(predictor_name, event_name, n_endpoints)
+
+    main(n_endpoints)
