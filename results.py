@@ -144,10 +144,10 @@ if __name__ == '__main__':
     
     use_aux_info = False 
     use_mbd = False
-    use_gp = True
+    use_gp = False
     feature_matching = False
-    #n_endpoints = 6
-    n_endpoints = len(endpoints)
+    n_endpoints = 6
+    #n_endpoints = len(endpoints)
     n_runs = 8
     
     main(use_aux_info, use_mbd, use_gp, n_endpoints, n_runs)

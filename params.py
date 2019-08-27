@@ -45,7 +45,7 @@ mbd_kernel_dims = 2
 # Training params
 batch_size = 128*16
 #batch_size = 17
-n_epochs = 30
+n_epochs = 0
 print_step = 1#max(n_epochs // 20, 1)
 lr = 5 * 10 ** (-5)
 #lr = 10 ** (-6.864947029352897)
