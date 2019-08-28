@@ -343,8 +343,13 @@ def main(n_endpoints):
         args = get_args(dirname)
 
         if args['n_endpoints'] == n_endpoints:
-            freqs = torch.load(dirname + 'freqs.pt').numpy()
-            freqs_fake = torch.load(dirname + 'freqs_fake.pt').numpy()
+            freqs = torch.load(dirname + 'freqs.pt')
+            freqs_fake = torch.load(dirname + 'freqs_fake.pt')
+
+            chi_sqrd_d = chi_sqrd_dist(freqs, freqs_fake)
+
+            freqs = freqs.numpy()
+            freqs_fake = freqs_fake.numpy()
 
             x = np.arange(len(endpoints))
 
@@ -360,12 +365,89 @@ def main(n_endpoints):
             ax.autoscale_view()
             fig.subplots_adjust(bottom=0.36)
 
-            plt.savefig('figs/{}_freqs_{}.png'.format(n_endpoints, smart_label(args)))
+            plt.savefig('figs/{}_freqs_{}_{}.png'.format(n_endpoints, smart_label(args), chi_sqrd_d.item()))
+            plt.clf()
+
+def plot_training(n_endpoints):
+    plt.style.use(plot_style)
+
+    dirnames = glob.glob('results/*/0/')
+
+    for dirname in dirnames:
+        args = get_args(dirname)
+
+        if args['n_endpoints'] == n_endpoints:
+            data = torch.load(dirname + 'chi-sqrd_val.pt').numpy()
+
+            plt.plot(data)
+            plt.xlabel('Training iterations')
+            plt.ylabel('Metric value')
+
+            plt.savefig('figs/{}_training_{}.png'.format(n_endpoints, smart_label(args)))
+            plt.clf()
+
+def plot_transition_matrices():
+    n_endpoints = 6
+    dirnames = glob.glob('results/*/0/')
+
+    endpoints = [
+        'I9_HEARTFAIL_NS',
+        'I9_HYPTENS',
+        'I9_CHD',
+        'I9_ANGINA',
+        'I9_STR_EXH',
+        'C3_BREAST',
+    ]
+
+    plt.style.use('classic')
+
+    for dirname in dirnames:
+        args = get_args(dirname)
+
+        if args['n_endpoints'] == n_endpoints:
+            transition_freq_real = torch.load(dirname + 'transition_matrix_real_val.pt')
+            transition_freq_fake = torch.load(dirname + 'transition_matrix_fake_val.pt')
+            transition = torch.load(dirname + 'transition_val.pt').numpy()
+
+            fig, ax = plt.subplots(1, 3, sharex='col', sharey='row')
+            fig.subplots_adjust(left=0.22075, right=0.9)
+            ticks = np.arange(n_endpoints)
+            labels = endpoints
+            cmap = 'plasma'
+
+            vmax = torch.max(transition_freq_fake.max(), transition_freq_real.max())
+
+            im = ax[0].matshow(transition_freq_real, vmin=0, vmax=vmax, cmap=cmap)
+            ax[0].set_xticks(ticks)
+            ax[0].set_xticklabels(labels, rotation=90)
+            ax[0].set_title('Real', y = -0.2)
+
+            im = ax[1].matshow(transition_freq_fake, vmin=0, vmax=vmax, cmap=cmap)
+            ax[1].set_xticks(ticks)
+            ax[1].set_xticklabels(labels, rotation=90)
+            ax[1].set_title('Generated', y = -0.2)
+
+            im = ax[2].matshow(torch.abs(transition_freq_fake - transition_freq_real), vmin=0, vmax=vmax, cmap=cmap)
+            ax[2].set_xticks(ticks)
+            ax[2].set_xticklabels(labels, rotation=90)
+            ax[2].set_title('Abs. difference', y = -0.2)
+
+            plt.yticks(ticks, labels)
+
+            fig.colorbar(im, ax=ax.ravel().tolist(), ticks=np.linspace(0, vmax, 5), shrink = 0.27, aspect = 10)
+            fig.suptitle('Transition probabilities (Transition metric: {})'.format(round_to_n(transition[-1], 3)))
+            fig.savefig('figs/{}_transition_matrices.png'.format(smart_label(args)))
+
             plt.clf()
 
 
+
 if __name__ == '__main__':
-    n_endpoints = 13
+    plot_transition_matrices()
+
+    n_endpoints = 6
+
+    plot_training(n_endpoints)
 
     plot_chi_sqrd_boxes_without_None(n_endpoints)
 
