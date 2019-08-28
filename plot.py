@@ -407,7 +407,7 @@ def plot_transition_matrices():
         if args['n_endpoints'] == n_endpoints:
             transition_freq_real = torch.load(dirname + 'transition_matrix_real_val.pt')
             transition_freq_fake = torch.load(dirname + 'transition_matrix_fake_val.pt')
-            transition = torch.load(dirname + 'transition_val.pt').numpy()
+            transition = torch.load(dirname + 'transition_val.pt')
 
             fig, ax = plt.subplots(1, 3, sharex='col', sharey='row')
             fig.subplots_adjust(left=0.22075, right=0.9)
@@ -435,7 +435,7 @@ def plot_transition_matrices():
             plt.yticks(ticks, labels)
 
             fig.colorbar(im, ax=ax.ravel().tolist(), ticks=np.linspace(0, vmax, 5), shrink = 0.27, aspect = 10)
-            fig.suptitle('Transition probabilities (Transition metric: {})'.format(round_to_n(transition[-1], 3)))
+            fig.suptitle('Transition probabilities (Transition metric: {})'.format(round_to_n(transition[-1].item(), 3)))
             fig.savefig('figs/{}_transition_matrices.png'.format(smart_label(args)))
 
             plt.clf()
