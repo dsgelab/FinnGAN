@@ -28,6 +28,7 @@ def smart_label(args):
         'use_mbd': 'MBD',
         'use_gp': '0-GP',
         'feature_matching': 'FM',
+        'only_pretraining': 'MLE',
     }
 
     if true_count == 1:
@@ -65,6 +66,9 @@ def get_args(dirname):
     if 'feature_matching' not in res:
         res['feature_matching'] = False
 
+    if 'only_pretraining' not in res:
+        res['only_pretraining'] = False
+
     return res
 
 def data_dict_key(item):
@@ -94,7 +98,7 @@ def plot_boxes(filename, n_endpoints):
             if get_true_count(args) <= 1:
                 data_dict[smart_label(args)] = tmp_data[-1, :]
 
-    data_dict['MLE'] = tmp_data[1, :] # MLE/pretraining
+    #data_dict['MLE'] = tmp_data[1, :] # MLE/pretraining
 
     #data_dict = sorted(data_dict.items(), key=lambda kv: np.median(kv[1]))
     #data_dict = OrderedDict(data_dict)
@@ -292,11 +296,11 @@ def plot_chi_sqrd_boxes_without_None(n_endpoints):
                 data_dict[smart_label(args)] = tmp_data
 
     if n_endpoints == 6:
-        color_list = ['#CF9821', '#21CF98', '#CF2198', '#2198CF', '#9821CF']
-        keys = ['BASE', 'MBD', 'FM', '0-GP', 'AUX']
+        color_list = ['#CF9821', '#98CF21', '#21CF98', '#CF2198', '#2198CF', '#9821CF']
+        keys = ['BASE', 'MLE', 'MBD', 'FM', '0-GP', 'AUX']
     elif n_endpoints == 13:
-        color_list = ['#CF2198']
-        keys = ['FM']
+        color_list = ['#98CF21', '#CF2198']
+        keys = ['MLE', 'FM']
     # color_list = ['#CF2198', '#2198CF']
     # keys = ['FM', '0-GP']
 
@@ -443,8 +447,6 @@ def plot_transition_matrices():
 
 
 if __name__ == '__main__':
-    plot_transition_matrices()
-
     n_endpoints = 6
 
     plot_training(n_endpoints)
@@ -462,10 +464,12 @@ if __name__ == '__main__':
     for filename in filenames:
         plot_boxes(filename, n_endpoints)
 
-    predictor_name = 'C3_BREAST'
-    event_name = 'I9_CHD'
+    predictor_name = 'I9_CHD'
+    event_name = 'I9_HEARTFAIL_NS'
 
     plot_survival(predictor_name, event_name, n_endpoints)
     plot_hr(predictor_name, event_name, n_endpoints)
+
+    plot_transition_matrices()
 
     main(n_endpoints)
